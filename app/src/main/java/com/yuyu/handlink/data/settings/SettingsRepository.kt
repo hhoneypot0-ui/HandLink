@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class ThemeMode { SYSTEM, LIGHT, DARK, CUSTOM }
 
 /** 画质档位：一键预设，对标主流云手机“流畅/标清/高清/超清/原画”。CUSTOM 为用户手动调参 */
 enum class QualityPreset(
@@ -43,7 +43,9 @@ data class StreamSettings(
 
 /** 应用级偏好 */
 data class AppSettings(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themeMode: ThemeMode = ThemeMode.LIGHT,
+    /** 自定义主题主色（ARGB） */
+    val themeColor: Long = 0xFFFF98BE,
     val gridColumns: Int = 2,
     val haptics: Boolean = true,
     val keepScreenOn: Boolean = true,
@@ -87,6 +89,7 @@ class SettingsRepository(context: Context) {
         val v = transform(_app.value).let { it.copy(gridColumns = it.gridColumns.coerceIn(1, 4)) }
         prefs.edit()
             .putString("a_theme", v.themeMode.name)
+            .putLong("a_theme_color", v.themeColor)
             .putInt("a_grid", v.gridColumns)
             .putBoolean("a_haptics", v.haptics)
             .putBoolean("a_keep_on", v.keepScreenOn)
@@ -133,7 +136,9 @@ class SettingsRepository(context: Context) {
         val d = AppSettings()
         return AppSettings(
             themeMode = runCatching { ThemeMode.valueOf(prefs.getString("a_theme", d.themeMode.name)!!) }
-                .getOrDefault(d.themeMode),
+                .getOrDefault(d.themeMode)
+                .let { if (it == ThemeMode.SYSTEM) ThemeMode.LIGHT else it },  // 旧的「跟随系统」统一并到粉色
+            themeColor = prefs.getLong("a_theme_color", d.themeColor),
             gridColumns = prefs.getInt("a_grid", d.gridColumns),
             haptics = prefs.getBoolean("a_haptics", d.haptics),
             keepScreenOn = prefs.getBoolean("a_keep_on", d.keepScreenOn),

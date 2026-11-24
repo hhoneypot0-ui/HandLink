@@ -12,6 +12,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -103,14 +104,43 @@ private val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp),
 )
 
+/** 根据用户选的种子色，生成一套白底亮色主题 */
+private fun schemeFromSeed(seed: Color): androidx.compose.material3.ColorScheme {
+    val white = Color.White
+    val black = Color.Black
+    return lightColorScheme(
+        primary = seed,
+        onPrimary = Color.White,
+        primaryContainer = lerp(white, seed, 0.18f),
+        onPrimaryContainer = lerp(black, seed, 0.32f),
+        secondary = lerp(black, seed, 0.38f),
+        secondaryContainer = lerp(white, seed, 0.12f),
+        background = lerp(white, seed, 0.04f),
+        surface = Color.White,
+        surfaceVariant = lerp(white, seed, 0.07f),
+        surfaceContainer = lerp(white, seed, 0.05f),
+        surfaceContainerHigh = lerp(white, seed, 0.09f),
+        outline = lerp(Color(0xFF9AA3B2), seed, 0.18f),
+        outlineVariant = lerp(Color(0xFFDDE2EA), seed, 0.12f),
+        error = Color(0xFFEF4444),
+    )
+}
+
 @Composable
-fun HandLinkTheme(mode: ThemeMode = ThemeMode.SYSTEM, dynamic: Boolean = false, content: @Composable () -> Unit) {
+fun HandLinkTheme(
+    mode: ThemeMode = ThemeMode.LIGHT,
+    themeColor: Long = 0xFFFF98BE,
+    dynamic: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     val ctx = LocalContext.current
     val scheme = when (mode) {
         // 粉色：白底粉字
         ThemeMode.LIGHT -> Light
         // 蓝色：白底蓝字
         ThemeMode.DARK -> Blue
+        // 自定义：用用户选的颜色生成
+        ThemeMode.CUSTOM -> schemeFromSeed(Color(themeColor))
         // 跟随系统：系统深色才用深色
         ThemeMode.SYSTEM -> {
             val dark = isSystemInDarkTheme()

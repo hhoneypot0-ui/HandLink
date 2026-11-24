@@ -38,6 +38,7 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.runtime.remember
 
 /**
  * 投屏页。全屏沉浸，系统返回键 = 云手机返回键，退出走工具面板 / 二次确认。
@@ -90,7 +91,12 @@ class StreamActivity : ComponentActivity() {
         setupTouch()
 
         setContent {
-            HandLinkTheme(ThemeMode.DARK) {
+            val appSettings = remember {
+                runCatching { container.settings.app.value }.getOrDefault(
+                    com.yuyu.handlink.data.settings.AppSettings()
+                )
+            }
+            HandLinkTheme(appSettings.themeMode, appSettings.themeColor) {
                 StreamScreen(vm, videoView, onScreenshot = ::screenshot, onExit = ::exit)
             }
         }

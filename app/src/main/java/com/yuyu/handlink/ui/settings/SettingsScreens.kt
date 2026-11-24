@@ -313,18 +313,20 @@ fun AppSettingsScreen(repo: SettingsRepository, onBack: () -> Unit) {
         ) {
             SectionCard(title = "外观（选一个）") {
                 Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    ThemeOption(
-                        "跟随系统", "系统是深色就用深色，是浅色就用浅色",
-                        ThemeMode.SYSTEM, a.themeMode,
-                    ) { repo.updateApp { it.copy(themeMode = ThemeMode.SYSTEM) } }
-                    ThemeOption(
-                        "粉色", "亮一点，粉粉的",
-                        ThemeMode.LIGHT, a.themeMode,
-                    ) { repo.updateApp { it.copy(themeMode = ThemeMode.LIGHT) } }
-                    ThemeOption(
-                        "蓝色", "白底蓝字，清爽一点",
-                        ThemeMode.DARK, a.themeMode,
-                    ) { repo.updateApp { it.copy(themeMode = ThemeMode.DARK) } }
+                    ThemeOption("粉色", "亮一点，粉粉的", ThemeMode.LIGHT, a.themeMode) {
+                        repo.updateApp { it.copy(themeMode = ThemeMode.LIGHT) }
+                    }
+                    ThemeOption("蓝色", "白底蓝字，清爽一点", ThemeMode.DARK, a.themeMode) {
+                        repo.updateApp { it.copy(themeMode = ThemeMode.DARK) }
+                    }
+                    ThemeOption("自定义", "自己挑一个喜欢的颜色", ThemeMode.CUSTOM, a.themeMode) {
+                        repo.updateApp { it.copy(themeMode = ThemeMode.CUSTOM) }
+                    }
+                    if (a.themeMode == ThemeMode.CUSTOM) {
+                        ColorPalette(a.themeColor) { c ->
+                            repo.updateApp { it.copy(themeMode = ThemeMode.CUSTOM, themeColor = c) }
+                        }
+                    }
                 }
             }
 
@@ -546,6 +548,48 @@ fun AboutScreen(onBack: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/** 自定义主题色板 */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ColorPalette(current: Long, onPick: (Long) -> Unit) {
+    val colors = listOf(
+        0xFFFF98BE, 0xFF3B7DD8, 0xFFA78BFA, 0xFF34C759,
+        0xFF2DD4BF, 0xFFFF9F0A, 0xFFFF6B6B, 0xFFFFD60A,
+        0xFF6366F1, 0xFF00B8D4, 0xFF8B5E3C, 0xFF6B7280,
+    )
+    Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 12.dp)) {
+        Text(
+            "挑一个颜色", style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 10.dp),
+        )
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            colors.forEach { argb ->
+                val c = Color(argb)
+                val selected = current == argb
+                Box(
+                    Modifier
+                        .size(if (selected) 40.dp else 36.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(c)
+                        .clickable { onPick(argb) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) {
+                        Icon(
+                            Icons.Outlined.Check, null,
+                            tint = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }

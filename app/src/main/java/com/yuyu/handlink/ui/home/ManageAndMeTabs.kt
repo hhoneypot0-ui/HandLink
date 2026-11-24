@@ -44,6 +44,11 @@ import com.yuyu.handlink.ui.common.Pill
 import com.yuyu.handlink.ui.common.SectionCard
 import com.yuyu.handlink.ui.common.SettingRow
 import com.yuyu.handlink.ui.theme.AppColors
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 
 object Routes {
     const val HOME = "home"
@@ -104,22 +109,48 @@ fun MeTab(vm: HomeViewModel, navigate: (String) -> Unit) {
             shape = MaterialTheme.shapes.large,
         ) {
             Column(Modifier.padding(20.dp)) {
-                Row {
-                    Text(s.username, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    Pill(if (s.isAdmin) "管理员" else "用户", if (s.isAdmin) AppColors.Brand else AppColors.Online, filled = true)
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier
+                            .size(52.dp)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = androidx.compose.ui.Alignment.Center,
+                    ) {
+                        Text(
+                            s.username.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(s.username, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (s.isAdmin) "管理员" else "普通账号",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
+                        )
+                    }
                 }
-                Spacer(Modifier.height(4.dp))
-                Text(vm.endpoint.display, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f))
-                Spacer(Modifier.height(8.dp))
-                val exp = me?.expiresAt
-                Text(
-                    if (exp == null) "账号长期有效" else "账号到期：${Formatters.dateTime(exp)}（${Formatters.relative(exp)}）",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (exp != null && exp - System.currentTimeMillis() < 3 * 86400_000L) AppColors.Danger else MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-                me?.leases?.takeIf { it.isNotEmpty() }?.let { leases ->
-                    Spacer(Modifier.height(6.dp))
-                    Text("设备租约 ${leases.size} 个，最近到期：${Formatters.duration(leases.minOf { it.remainingSeconds })}", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text("服务器", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        vm.endpoint.display,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                        modifier = Modifier.weight(1f),
+                    )
+                    val exp = me?.expiresAt
+                    Text(
+                        if (exp == null) "长期有效" else Formatters.relative(exp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (exp != null && exp - System.currentTimeMillis() < 3 * 86400_000L) AppColors.Danger
+                        else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                    )
                 }
             }
         }
@@ -132,7 +163,7 @@ fun MeTab(vm: HomeViewModel, navigate: (String) -> Unit) {
         }
         SectionCard(title = "通用") {
             SettingRow(
-                "外观", when (app.themeMode) { ThemeMode.SYSTEM -> "跟随系统"; ThemeMode.LIGHT -> "粉色"; ThemeMode.DARK -> "蓝色" },
+                "外观", when (app.themeMode) { ThemeMode.LIGHT -> "粉色"; ThemeMode.DARK -> "蓝色"; ThemeMode.CUSTOM -> "自定义"; ThemeMode.SYSTEM -> "跟随系统" },
                 Icons.Outlined.DarkMode, onClick = { navigate(Routes.APP_SETTINGS) }
             )
             SettingRow("偏好设置", "振动反馈、剪贴板同步、自动重连…", Icons.Outlined.Tune, onClick = { navigate(Routes.APP_SETTINGS) })
