@@ -98,19 +98,6 @@ class LoginViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 repo.login(ep, username, s.password)
-                // 声明这台手机占用该账号（后登录的顶掉前一台，不阻止登录）
-                runCatching {
-                    val ctx = c.appContext
-                    val sess = repo.session.value
-                    if (sess != null) {
-                        repo.anonymousApi(ep).claimSession(
-                            username,
-                            sess.token,
-                            yunyun.xiangxiang.handlink.host.HostConfig.load(ctx).deviceId,
-                            yunyun.xiangxiang.handlink.host.DeviceNames.marketingName(ctx),
-                        )
-                    }
-                }
                 if (s.rememberPassword) repo.savePassword(ep.serialize(), username, s.password)
                 else repo.clearPassword(ep.serialize(), username)
             } catch (e: ApiException.UntrustedCertificate) {

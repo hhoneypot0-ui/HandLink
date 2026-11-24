@@ -73,25 +73,6 @@ class HomeViewModel(private val c: AppContainer, val session: AuthSession) : Vie
     fun savedPasswordFor(username: String): String =
         runCatching { c.sessions.savedPassword(session.serverUrl, username).orEmpty() }.getOrDefault("")
 
-    init {
-        // 同一账号只允许一处在线：定时问服务器「我还是当前会话吗」
-        // 被别的手机顶掉后，这里自动退出并提示
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(20_000)
-                runCatching {
-                    val ep = yunyun.xiangxiang.handlink.core.net.ServerEndpoint.parse(session.serverUrl)
-                        ?: return@runCatching
-                    val active = c.sessions.anonymousApi(ep)
-                        .isSessionActive(session.username, session.token)
-                    if (!active) {
-                        c.sessions.expire("这个账号已经在另一台手机上登录了，这里已退出")
-                    }
-                }
-            }
-        }
-    }
-
     private val _filter = MutableStateFlow(DeviceFilter())
     val filter: StateFlow<DeviceFilter> = _filter.asStateFlow()
 

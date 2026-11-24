@@ -239,10 +239,14 @@ const server = https.createServer({
     const username = url.searchParams.get('username') || '';
     const token = url.searchParams.get('token') || '';
     const cur = readBindings()[username];
-    const active = !!cur && cur.token === token;
+    if (!cur) {
+      // 没有记录 = 这台手机还没声明过（或服务重启过），不能当成被顶掉
+      return send(res, 200, { active: true, known: false, device_name: '' });
+    }
     return send(res, 200, {
-      active,
-      device_name: cur ? (cur.device_name || '') : '',
+      active: cur.token === token,
+      known: true,
+      device_name: cur.device_name || '',
     });
   }
 
@@ -309,6 +313,57 @@ const server = https.createServer({
 
   send(res, 404, { error: 'not found' });
 });
+
+/**
+ * 巡视为每个普通账号补齐「全部设备」的租约。
+ * 服务器对 "*" 只允许一条租约，所以改成按真实设备逐台授权。
+ */
+async function ensureLeases() {
+  try {
+    const token = await getAdminToken(false);
+    // 设备列表（装在容器里的注册表）
+    const { execFile } = require('child_process');
+    const raw = await new Promise((resolve) => {
+      execFile('docker', ['exec', 'cp-aio', 'cat', '/app/data/devices.json'], (err, stdout) => {
+        resolve(err ? '{}' : stdout);
+      });
+    });
+    let devices = [];
+    try { devices = Object.keys(JSON.parse(raw)); } catch (_) { devices = []; }
+    if (!devices.length) return;
+
+    const usersResp = await upstream('GET', '/api/admin/users', undefined, token);
+    const users = Array.isArray(usersResp.json) ? usersResp.json : [];
+    const leasesResp = await upstream('GET', '/api/admin/leases?status=all', undefined, token);
+    const leases = Array.isArray(leasesResp.json) ? leasesResp.json : [];
+
+    const have = new Set();
+    for (const l of leases) {
+      if (l && l.active) have.add(l.username + '|' + l.device_id);
+    }
+
+    let added = 0;
+    for (const u of users) {
+      if (!u || !u.username || u.role === 'admin') continue;
+      for (const d of devices) {
+        if (have.has(u.username + '|' + d)) continue;
+        const r = await upstream('POST', '/api/admin/leases/create', {
+          username: u.username,
+          device_id: d,
+          duration_seconds: 10 * 365 * 24 * 3600,
+          note: 'auto: 全部设备',
+        }, token);
+        if (r.status === 200) added++;
+      }
+    }
+    if (added) console.log(`[leases] 新增 ${added} 条设备授权`);
+  } catch (e) {
+    console.log('[leases] 巡检失败', e.message);
+  }
+}
+
+setInterval(ensureLeases, 60 * 1000);
+setTimeout(ensureLeases, 3000);
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[register] listening on :${PORT}, upstream 127.0.0.1:${UPSTREAM_PORT}, limit=${LIMIT}`);

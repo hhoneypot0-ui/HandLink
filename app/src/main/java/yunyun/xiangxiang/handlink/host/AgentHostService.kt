@@ -195,13 +195,13 @@ class AgentHostService : Service {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_app_logo)
-            .setContentTitle("云手机受控端 (Host Agent)")
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle("屏幕共享中")
             .setContentText(statusText)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(pendingIntent)
-            .addAction(0, "停止受控", stopPendingIntent)
+            .addAction(0, "停止共享", stopPendingIntent)
             .build()
     }
 
@@ -214,10 +214,10 @@ class AgentHostService : Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "云手机受控端保活",
+                "屏幕共享",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "保持受控端在后台持续运行"
+                description = "屏幕共享期间保持连接"
                 setShowBadge(false)
             }
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager

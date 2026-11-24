@@ -176,7 +176,7 @@ class ProjectionStandbyService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
         return (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, channel) else Notification.Builder(this))
-            .setSmallIcon(android.R.drawable.ic_menu_camera).setContentIntent(open)
+            .setSmallIcon(yunyun.xiangxiang.handlink.R.drawable.ic_notify).setContentIntent(open)
     }
 
     override fun onDestroy() {

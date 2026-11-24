@@ -152,14 +152,14 @@ class ProjectionHostService : Service() {
     private fun showNotification(unattended: Boolean) {
         val manager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL, "系统录屏被控", NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL, "屏幕共享", NotificationManager.IMPORTANCE_LOW))
         }
         val stop = PendingIntent.getService(
             this, 0, Intent(this, ProjectionHostService::class.java).setAction(STOP),
             PendingIntent.FLAG_IMMUTABLE
         )
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this)
-        val notification = builder.setSmallIcon(android.R.drawable.ic_menu_camera)
+        val notification = builder.setSmallIcon(yunyun.xiangxiang.handlink.R.drawable.ic_notify)
             .setContentTitle(if (unattended) "亮屏无人值守已开启" else "正在给对方看屏幕")
             .setContentText(if (unattended) "请保持手机亮屏并解锁" else null)
             .setOngoing(true)
