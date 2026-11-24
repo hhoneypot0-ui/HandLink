@@ -1,0 +1,174 @@
+package yunyun.xiangxiang.handlink.ui.home
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import yunyun.xiangxiang.handlink.AppContainer
+import yunyun.xiangxiang.handlink.core.net.ApiException
+import yunyun.xiangxiang.handlink.core.net.ServerEndpoint
+import yunyun.xiangxiang.handlink.data.model.AuthSession
+import yunyun.xiangxiang.handlink.data.model.Device
+import yunyun.xiangxiang.handlink.data.model.TagsPayload
+import yunyun.xiangxiang.handlink.data.repo.DeviceRepository
+import yunyun.xiangxiang.handlink.rtc.CameraParams
+import yunyun.xiangxiang.handlink.rtc.StreamAuth
+import yunyun.xiangxiang.handlink.rtc.StreamMode
+import yunyun.xiangxiang.handlink.rtc.StreamTarget
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+enum class StatusFilter(val label: String) { ALL("全部"), ONLINE("在线"), IN_USE("正在看"), OFFLINE("不在线") }
+
+data class DeviceFilter(
+    val query: String = "",
+    val status: StatusFilter = StatusFilter.ALL,
+    val tagIds: Set<String> = emptySet(),
+) {
+    /**
+     * 纯函数过滤判断：状态 + 标签筛选 + 搜索（命中 设备 ID / 型号 / 标签名）。
+     * 抽出来便于单测，UI 的 combine 直接调用。
+     */
+    fun matches(d: Device, tags: TagsPayload): Boolean {
+        val statusOk = when (status) {
+            StatusFilter.ALL -> true
+            StatusFilter.ONLINE -> d.online
+            StatusFilter.IN_USE -> d.online && d.inUse
+            StatusFilter.OFFLINE -> !d.online
+        }
+        if (!statusOk) return false
+        val devTagIds = tags.deviceTags[d.id].orEmpty()
+        if (tagIds.isNotEmpty() && devTagIds.none { it in tagIds }) return false
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return true
+        return d.id.lowercase().contains(q) ||
+            d.alias.lowercase().contains(q) ||
+            d.info.title.lowercase().contains(q) ||
+            devTagIds.any { id -> tags.tags.firstOrNull { it.id == id }?.name?.lowercase()?.contains(q) == true }
+    }
+}
+
+/** 首页（设备 / 管理 / 我的）共享的会话级 ViewModel */
+class HomeViewModel(private val c: AppContainer, val session: AuthSession) : ViewModel() {
+
+    val repo: DeviceRepository = c.userScope()!!.devices
+    val quickTexts = c.userScope()!!.quickTexts
+    val endpoint: ServerEndpoint = ServerEndpoint.parse(session.serverUrl)!!
+
+    val devices = repo.devices
+    val snapshots = repo.snapshots
+    val tags = repo.tags
+    val me = repo.me
+    val loading = repo.loading
+    val error = repo.error
+    val socketState = repo.socketState
+    val appSettings = c.settings.app
+
+    private val _filter = MutableStateFlow(DeviceFilter())
+    val filter: StateFlow<DeviceFilter> = _filter.asStateFlow()
+
+    val filtered: StateFlow<List<Device>> = combine(devices, _filter, tags) { list, f, t ->
+        list.filter { f.matches(it, t) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val messages = _messages.asSharedFlow()
+
+    fun setFilter(transform: (DeviceFilter) -> DeviceFilter) {
+        _filter.value = transform(_filter.value)
+    }
+
+    fun setActive(active: Boolean) = repo.setActive(active)
+
+    fun refresh() = viewModelScope.launch {
+        repo.refresh()
+        repo.loadMeta()
+    }
+
+    fun setGridColumns(n: Int) = c.settings.updateApp { it.copy(gridColumns = n) }
+
+    fun targetFor(d: Device, camera: CameraParams? = null, transport: yunyun.xiangxiang.handlink.rtc.StreamTransport = yunyun.xiangxiang.handlink.rtc.StreamTransport.WEBRTC): StreamTarget {
+        val policy = me.value?.policy
+        return StreamTarget(
+            endpoint = endpoint,
+            deviceId = d.id,
+            deviceName = d.displayName,
+            auth = StreamAuth.User(session.token),
+            allowFileTx = policy?.forbidFilePush != true,
+            allowTerminal = policy?.forbidTerminal != true,
+            mode = if (camera != null) StreamMode.Camera(camera) else StreamMode.Screen,
+            settings = c.settings.stream.value,
+            transport = transport,
+            projectionOnDemand = d.info.projectionOnDemand,
+            displayHint = d.info.primaryDisplay?.let { it.width to it.height },
+        )
+    }
+
+    fun deleteDevice(d: Device) = launchOp("已删除 ${d.id}") { repo.deleteDevice(d.id) }
+
+    fun setDeviceAlias(deviceId: String, alias: String) = launchOp("名称已更新") { repo.setDeviceAlias(deviceId, alias) }
+
+    fun setDeviceTags(deviceId: String, ids: List<String>) = launchOp("标签已更新") { repo.setDeviceTags(deviceId, ids) }
+
+    // ---------- 设备开租与租约管理快捷支持 ----------
+
+    suspend fun getDeviceLease(deviceId: String): yunyun.xiangxiang.handlink.data.model.AdminLease? {
+        val api = c.sessions.api() ?: return null
+        val leases = runCatching { api.adminLeases(device = deviceId, status = "active") }.getOrNull()
+        return leases?.firstOrNull()
+    }
+
+    suspend fun getUsers(): List<yunyun.xiangxiang.handlink.data.model.AdminUser> {
+        val api = c.sessions.api() ?: return emptyList()
+        return runCatching { api.users() }.getOrDefault(emptyList())
+    }
+
+    fun createDeviceLease(username: String, deviceId: String, durationSeconds: Long, note: String) =
+        launchOp("已为设备 $deviceId 开通租约") {
+            val api = c.sessions.api() ?: return@launchOp
+            api.createLease(yunyun.xiangxiang.handlink.data.model.LeaseCreateRequest(username, deviceId, durationSeconds, note))
+            repo.refresh()
+        }
+
+    fun extendDeviceLease(leaseId: String, durationSeconds: Long) =
+        launchOp("租约已展期") {
+            val api = c.sessions.api() ?: return@launchOp
+            api.extendLease(leaseId, durationSeconds)
+            repo.refresh()
+        }
+
+    fun revokeDeviceLease(leaseId: String) =
+        launchOp("租约已收回") {
+            val api = c.sessions.api() ?: return@launchOp
+            api.revokeLease(leaseId)
+            repo.refresh()
+        }
+
+    fun logout() = viewModelScope.launch {
+        c.streamSessions.close()
+        repo.close()
+        c.sessions.logout()
+    }
+
+    fun launchOp(success: String? = null, block: suspend () -> Unit) = viewModelScope.launch {
+        try {
+            block()
+            success?.let { _messages.tryEmit(it) }
+        } catch (e: ApiException) {
+            _messages.tryEmit(e.message ?: "操作失败")
+        }
+    }
+
+    fun toast(msg: String) {
+        _messages.tryEmit(msg)
+    }
+
+    override fun onCleared() {
+        repo.setActive(false)
+    }
+}
