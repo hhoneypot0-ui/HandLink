@@ -1,6 +1,15 @@
 # 牵手远程 HandLink
 
 <p align="center">
+  <a href="https://hhoneypot0-ui.github.io/HandLink/">
+    <img src="https://img.shields.io/badge/🌐_官网-在线预览-FF98BE?style=for-the-badge" alt="官网">
+  </a>
+  <a href="https://github.com/hhoneypot0-ui/HandLink/releases/latest">
+    <img src="https://img.shields.io/badge/⬇_下载-APK_v2.0-F06292?style=for-the-badge" alt="下载">
+  </a>
+</p>
+
+<p align="center">
   <img src="logo.svg" width="128" height="128" alt="HandLink" />
 </p>
 
