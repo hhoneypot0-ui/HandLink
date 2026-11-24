@@ -1,92 +1,118 @@
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.util.Properties
+import java.io.ByteArrayOutputStream
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
+
+// 基础版本号取仓库根目录 VERSION 文件（跟随 cloudphone，各组件一致），缺省 1.0.0
+val baseVersionName: String = run {
+    var dir: File? = rootProject.rootDir
+    while (dir != null) {
+        val f = File(dir, "VERSION")
+        if (f.isFile) {
+            val v = f.readText().trim().removePrefix("v").removePrefix("V").trim()
+            if (v.isNotEmpty()) return@run v
+        }
+        dir = dir.parentFile
+    }
+    "1.0.0"
+}
+
+// 执行 git 命令的辅助工具（带 fallback，避免离线源码构建报错）
+fun gitCommand(vararg args: String): String {
+    return try {
+        val stdout = ByteArrayOutputStream()
+        project.exec {
+            commandLine("git", *args)
+            standardOutput = stdout
+            errorOutput = ByteArrayOutputStream()
+            isIgnoreExitValue = true
+        }
+        stdout.toString().trim()
+    } catch (_: Exception) {
+        ""
+    }
+}
+
+val gitCommitCount: Int = gitCommand("rev-list", "--count", "HEAD").toIntOrNull() ?: 12
+val gitCommitHash: String = gitCommand("rev-parse", "--short", "HEAD").ifEmpty { "unknown" }
+val isGitDirty: Boolean = gitCommand("status", "--porcelain").isNotEmpty()
+val gitExactTag: String = gitCommand("describe", "--tags", "--exact-match")
+
+// versionName：若在 Release Tag 上则为纯版本号，否则形如 0.4.2-75e0d39（脏工作区追加 -dirty）
+val appVersionName: String = baseVersionName
+
+// versionCode = Major * 10,000,000 + Minor * 100,000 + Patch * 1,000 + gitCommitCount
+// 保证 32 位正整数内单调递增，永不溢出
+val appVersionCode: Int = run {
+    val parts = baseVersionName.split(".").map { it.takeWhile { c -> c.isDigit() }.toIntOrNull() ?: 0 }
+    val major = parts.getOrElse(0) { 0 }
+    val minor = parts.getOrElse(1) { 0 }
+    val patch = parts.getOrElse(2) { 0 }
+    (major * 10_000_000 + minor * 100_000 + patch * 1_000 + gitCommitCount).coerceAtLeast(1)
+}
+
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+fun propOrEnv(name: String): String? =
+    (project.findProperty(name) as String?) ?: localProps.getProperty(name) ?: System.getenv(name)
 
 android {
     namespace = "com.yuyu.handlink"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.yuyu.handlink"
-        minSdk = 26
-        targetSdk = 34
-        // 版本规范：
-        //   versionName 语义化：主.次.修订
-        //     主 —— 不兼容变更
-        //     次 —— 新功能（协议/权限/协商）
-        //     修订 —— 参数调整与 bug 修复
-        //   versionCode 单调递增，每次发版 +1，用于判断谁装的是新的
-        //
-        // 历史：
-        //   0.1      初版
-        //   0.2.0    双向解码能力协商、ColorOS 保活引导、安卓16 中断恢复
-        //   0.2.1    拖动改分段续接（修"根本动不了"）
-        //   0.2.2    中继码率 3Mbps 限流（修"卡"）
-        //   0.2.3    H.264 High Profile（修"糊"）
-        //   0.3.0    集成 Shizuku 真实触摸注入（修"划不动"），无障碍降级保留
-        //   0.4.0    接入 WebRTC：自适应码率/帧率，解决"卡"和"糊"的根本方案
-        //   0.5.0    改用官方 ScreenCapturerAndroid（对齐 ColorOS），码率策略优于它
-        //   0.4.6    音频静音看门狗：playback capture 采到全零 6 秒且媒体流活跃
-        //            → 自动切麦克风拾外放（修 A93s 被控端"链路通但静音"）
-        //   0.4.7    按用户要求砍掉"打电话"效应：删 WebRTC 麦克风音频轨（人声环境音
-        //            不再上传）；麦克风兜底改为默认关闭（仅 flag 文件开启）
-        //   0.4.12   RTC 全链路埋点补齐：ICE 状态/offer/answer/forceCodec 所有静默分支
-        //            写 rtc_diag.txt（实测音频通但视频0帧、旧日志无任何 RTC: 行）
-        //   0.4.13   修复看门狗从未启动：running 标志无人置 true → 线程秒退。
-        //            实测 0.4.12：offer h264=false（M74 AAR 软编不含 OpenH264，只剩 VP8），
-        //            ICE CONNECTED 但 bytesSent 无从得知
-        //   0.4.14   修双 offer 竞态：start() 时 addTrack 自动 offer + 配对后显式 offer
-        //            同飞 → viewer 连收两个 offer 回两个 answer，SDP 对不齐 → 0 帧。
-        //            negotiating 锁 + 非 STABLE 先回滚 + handleOffer/handleAnswer 状态守卫
-        //   0.4.15   viewer 侧入站看门狗：inbound bytesReceived/framesReceived/
-        //            framesDecoded/decoderImplementation 写 rtc_diag.txt
-        //   0.4.16   根治双 offer：压住 start() 建轨期的自动 offer，只留配对后的显式 offer。
-        //            0.4.15 实测 viewer framesDecoded 在涨但 EglRenderer 0 帧
-        //            （渲染器挂在第一个 offer 的死接收轨上）
-        //   0.4.17   渲染器补挂已存在的 videoTrack：offer 常先于 Compose attach 到达，
-        //            0.4.16 实测 framesDecoded 涨但 EglRenderer 0 帧=sink 从未加上
-        //   0.4.18   根治 nativeAddIceCandidate SIGSEGV（一加 viewer 三次闪退）：
-        //            watchdog 线程 close/recreate pc 与 OkHttp 信令线程 addIceCandidate
-        //            竞争 native pc_ 指针 → pcGate 锁串行化所有 pc 生命周期操作
-        //   0.4.19   engineAlive 标志根治 SIGSEGV：pcGate 挡不住 factory.dispose
-        //            （崩溃在 addIceCandidate 内部，锁已持有）——M74 的 native pc_
-        //            在 factory 销毁后是野指针，唯一安全做法是所有信令入口先查标志
-        //   0.4.20   码率失控根治：0.4.19 实测 host 80 秒 outbound 236MB(≈24Mbps)，
-        //            热点上行打爆 → ICE DISCONNECTED → 触摸通道死。
-        //            encodings.maxBitrate=4M + maxFramerate=30 + 重开 CPU 过载探测
-        //   0.4.21 用户实测 0.4.20"超卡超模糊不跟手"：VP8 软编在 A93s CPU 打爆。
-        //          默认 useRtc=false 切硬编 H264 旧管线（WebRTC 硬编攻关中）
-        versionCode = 80
-        versionName = "0.6.0"
-
-        // ABI 过滤：只保留 arm64-v8a。
-        // WebRTC 的 .so 每架构 5~8MB，四架构全打进去 APK 直接 35MB；
-        // 一加15 / Reno14 都是 arm64，其余架构纯属浪费。
-        ndk {
-            abiFilters.clear()
-            abiFilters.add("arm64-v8a")
-        }
-        // 构建时间，App 里直接显示，一眼看出装的是哪次编译
-        val buildStamp = SimpleDateFormat("MM-dd HH:mm")
-            .format(Date())
-        buildConfigField("String", "BUILD_TIME", "\"$buildStamp\"")
+        minSdk = 24
+        targetSdk = 35
+        versionCode = appVersionCode
+        versionName = appVersionName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables.useSupportLibrary = true
     }
 
-    packaging {
-        jniLibs {
-            // 保留 .so 原样，不二次压缩，避免破坏 ELF 结构加剧对齐问题
-            useLegacyPackaging = false
+    signingConfigs {
+        create("release") {
+            // 签名凭据只从 gradle 属性 / local.properties / 环境变量读取，不入库
+            val storePath = propOrEnv("KEYSTORE_FILE")
+            if (storePath != null && File(storePath).exists()) {
+                storeFile = File(storePath)
+                storePassword = propOrEnv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = propOrEnv("KEY_ALIAS") ?: ""
+                keyPassword = propOrEnv("KEY_PASSWORD") ?: ""
+            }
         }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            if (signingConfigs.getByName("release").storeFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            // 不添加 .debug 后缀，保持包名与应用一致
+        }
+    }
+
+    applicationVariants.all {
+        val variantName = name
+        val vName = versionName
+        outputs.all {
+            (this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl)
+                ?.outputFileName = "牵手远程-v${vName}-${variantName}.apk"
         }
     }
 
@@ -97,49 +123,71 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
     buildFeatures {
         compose = true
         buildConfig = true
-        aidl = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.10"
     }
 
-    // 输出文件名带上版本与时间：握手包不再混淆
-    // 形如：牵手远程-0.2.3-(23)-1105-1431.apk
-    applicationVariants.all {
-        outputs.all {
-            val o = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val stamp = SimpleDateFormat("MMdd-HHmm")
-                .format(Date())
-            o.outputFileName = "牵手远程-${versionName}-(${versionCode})-$stamp.apk"
+    packaging {
+        resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}")
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+}
+
+// 默认使用 scripts/fetch-agent-assets.sh 获取的最新正式版本；仅显式指定 -PsyncLocalAgentAssets=true 时使用本地开发组件。
+val syncAgentAssetsTask = tasks.register("syncAgentAssets") {
+    val localAgentDir = File(rootProject.rootDir, "../../release/agentd")
+    val assetsDir = file("src/main/assets")
+    inputs.files(fileTree(localAgentDir))
+    outputs.dir(assetsDir)
+    doLast {
+        if (localAgentDir.isDirectory) {
+            assetsDir.mkdirs()
+            listOf("cloudphone-agent-arm64", "cloudphone-agent-armeabi-v7a", "cloudphone-agent-amd64", "libsys_core.so").forEach { name ->
+                val src = File(localAgentDir, name)
+                val dst = File(assetsDir, name)
+                if (src.isFile && (!dst.exists() || src.lastModified() > dst.lastModified() || src.length() != dst.length())) {
+                    src.copyTo(dst, overwrite = true)
+                    logger.lifecycle("Synced agent asset: $name -> ${dst.path}")
+                }
+            }
         }
+    }
+}
+tasks.named("preBuild") {
+    if (providers.gradleProperty("syncLocalAgentAssets").orNull == "true") {
+        dependsOn(syncAgentAssetsTask)
     }
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
-    implementation(composeBom)
-    implementation("androidx.activity:activity-compose:1.8.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.java-websocket:Java-WebSocket:1.5.6")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.process)
+    implementation(libs.androidx.navigation.compose)
 
-    // Shizuku：拿到 shell 权限，用 InputManager.injectInputEvent 注入真实触摸事件。
-    // 无障碍的 GestureDescription 只能"模拟一次完整手势"，会被系统识别/取消，
-    // 永远做不到跟手；Shizuku 注入的是和真实手指完全同等的 MotionEvent。
-    implementation("dev.rikka.shizuku:api:13.1.5")
-    implementation("dev.rikka.shizuku:provider:13.1.5")
-    implementation("dev.rikka.tools.refine:annotation:4.4.0")
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons)
+    debugImplementation(libs.compose.ui.tooling)
 
-    // WebRTC 官方库：解决"卡"和"糊"的根本方案。
-    // 拆 ColorOS 的 ShareScreen 发现它用的是 com.oplus.ortc（基于 WebRTC），
-    // 关键能力是 availableOutgoingBitrate / BitrateAllocation —— 实时探测带宽并动态调码率。
-    // 我们用固定码率是开环，碰到网络波动就只能丢帧，画面自然又卡又糊。
-    implementation("org.webrtc:google-webrtc:1.0.32006")
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.webrtc)
+    implementation(libs.okhttp)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.org.json)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">牵手远程</string>
+    <!-- 主页标题（与应用名一致，可独立调整） -->
+    <string name="app_title">牵手远程</string>
+    <string name="projection_accessibility_description">仅在「牵手远程」正在共享整屏时，代为执行已授权控制端发送的触控和导航操作。</string>
+</resources>

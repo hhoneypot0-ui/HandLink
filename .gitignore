@@ -1,10 +1,42 @@
+# Gradle and build
 *.iml
 .gradle/
 build/
+/build
+/app/build
+out/
+
+# Local & sensitive credentials
 local.properties
+*.keystore
+*.jks
+*.p12
+
+# IDE & editors
 .idea/
+*.iws
+*.ipr
+*.swp
+*~
+.vscode/
+
+# OS specific
 .DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Android & NDK specific
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
 *.apk
-*.log
-__pycache__/
-node_modules/
+*.aab
+
+# Kotlin
+.kotlin/
+
+# Agent runtime binaries (fetched dynamically or synced locally, do not commit)
+app/src/main/assets/cloudphone-agent*
+app/src/main/assets/libsys_core.so
+

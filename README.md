@@ -1,87 +1,132 @@
 # 牵手远程 HandLink
 
-> 两台手机，一块屏幕 —— 面向情侣/亲密关系的 Android 远程互控 App。
-> 单 APK 双角色：任何一台手机既能当**被控端**（截屏+媒体声推流），也能当**控制端**（实时画面+纯触摸透传）。
+<p align="center">
+  <img src="logo.svg" width="128" height="128" alt="HandLink" />
+</p>
 
-English: A couple-oriented Android remote-control app. One APK, two roles: the *host* streams its screen
-and media audio; the *viewer* sees a live picture and controls it with raw touch passthrough —
-it should feel exactly like touching your own phone.
+<h3 align="center">两台手机，一块屏幕</h3>
 
-## 它解决什么问题
+<p align="center">
+  不管隔多远，都能看到对方在做什么。
+</p>
 
-异地恋的两部手机，互相"牵手"：
+---
 
-- **被控端**开启共享后给出 6 位配对码，无需账号体系；
-- **控制端**输入配对码 + 被控端 IP（局域网直连）或仅配对码（经中继服务器异地连接）；
-- 被控端本机弹出**允许确认**（隐私红线：没有本机点允许，谁也看不到）；
-- 连接后控制端整屏就是对方的手机：滑动、长按、点按 1:1 透传，**没有任何多余按钮、输入框、边缘手势**——手感目标 = "像操作自己的手机"。
+## 这是什么
 
-## 功能现状（诚实版）
+一个给两个人用的远程屏幕共享 App。
 
-| 能力 | 状态 |
+**只做三件事：**
+
+1. **让对方看我的屏幕** —— 打开开关，对方就能实时看到你在做什么
+2. **看对方的屏幕** —— 点一下设备，对方手机的画面就出现在你屏幕上
+3. **直接操作** —— 不只是看，还能直接点、滑、打字
+
+## 特点
+
+| | |
 |---|---|
-| 局域网 720p H264 硬编推流（6.8Mbps，低延迟配置） | ✅ 流畅清晰，触摸秒跟 |
-| 被控端媒体声（AudioPlaybackCapture → AAC） | ✅ 只传媒体声，刻意不传麦克风（不做"电话"） |
-| 无障碍 dispatchGesture 触摸注入 | ✅ Android 11+ 实测 |
-| 配对确认弹窗 + 状态栏通知可随时停止 | ✅ |
-| 自建中继（房间制 WebSocket 信令 + coturn TURN） | ⚙️ 基建已上线，公网场景调优中 |
-| WebRTC 通道（自适应码率） | ⚙️ 链路已通；受限于官方预编译库不含 H264 软编，当前默认走原生 H264 管线 |
+| **低延迟** | 基于 scrcpy 内核 + WebRTC，延迟 100ms 级别 |
+| **高清** | 最高 1920p / 60fps / 20Mbps，动态码率自适应 |
+| **跨网络** | 异地也能用，支持 NAT 穿透和中继 |
+| **免 Root** | 用系统录屏授权即可，不需要刷机 |
+| **可选完整控制** | 装 Shizuku 后可以完整操作对方手机 |
 
-已知边界：被控端为低端 MTK 机型时，WebRTC 官方 AAR 硬编探测失败；
-项目内已实现软编降级与看门狗，详见 `docs/ARCHITECTURE.md`。
+## 怎么用
 
-## 架构速览
+### 两台手机都要装
+
+下载 APK，各自装好。
+
+### 一台当「看的人」
+
+1. 打开 App，填服务器地址
+2. 登录
+3. 点设备列表里的那台手机
+4. 看画面，直接操作
+
+### 一台当「被看的人」
+
+1. 打开 App
+2. 点底部「我的」→「让对方看我的屏幕」
+3. 点「让对方连进来」
+4. 系统弹出录屏授权 → 点「立即开始」
+
+### 想要完整控制？（可选）
+
+默认用系统录屏，只能看不太能操作。
+
+想完整控制，被控端需要装 **Shizuku** 并激活：
+
+1. 装 Shizuku App
+2. 打开无线调试：设置 → 开发者选项 → 无线调试
+3. 在 Shizuku 里点「配对」，输入 6 位配对码
+4. 回到「牵手远程」→「我的」→「让对方看我的屏幕」→ 执行引擎选 **Shizuku**
+5. 点「请求 Shizuku 授权」→ 允许
+
+> 注意：Shizuku 在手机重启后需要重新激活一次（约 30 秒）
+
+## 服务器
+
+自建的信令服务 + TURN 中继：
 
 ```
-┌───────── 被控端 ─────────┐        ┌───────── 控制端 ─────────┐
-│ MediaProjection          │        │  SurfaceView 全屏渲染     │
-│  └ VirtualDisplay 720x1600│       │  pointerInput → 归一化触摸 │
-│ MediaCodec H264 硬编 6.8M │─视频帧→│  MediaCodec 硬解          │
-│ AudioPlaybackCapture AAC  │─媒体声→│  AudioTrack 低延迟播放     │
-│ MediaProjection 音频       │        │                           │
-│ HandlinkServer (WS :8723) │←─触摸──│  RemoteLink (WS client)   │
-│ RemoteControlService      │        │                           │
-│  └ dispatchGesture 注入    │        │                           │
-└───────────┬──────────────┘        └───────────┬───────────────┘
-            │        局域网直连 或 中继           │
-            └──── relay.js (信令房间) + coturn (TURN 兜底) ────┘
-                     WebRTC PeerConnection（视频+触摸 DataChannel）
+信令：http://你的服务器:8443
 ```
 
-三通道设计：**视频/音频**走 WebSocket 二进制帧（原生管线）或 WebRTC；
-**触摸**走 WebSocket 文本或 WebRTC DataChannel；**信令**（offer/answer/ICE/配对）走同一通道复用。
+服务端用 [HandLink](https://github.com/hhoneypot0-ui/HandLink) 的 Docker 镜像：
 
-## 目录结构
-
+```bash
+docker run -d --name cp-aio --network host --restart unless-stopped \
+  -e PUBLIC_IP=你的公网IP \
+  -e USE_TLS=false \
+  -e SIGNALING_PORT=8443 \
+  -e TURN_USER=用户名 \
+  -e TURN_PASSWORD=密码 \
+  buutuu/scrcpy-over-webrtc:latest
 ```
-app/                  Android 应用（Kotlin + Jetpack Compose，单 APK 双角色）
-relay/relay.js        房间制 WebSocket 信令中继（Node，无依赖之外的东西）
-docs/                 架构与踩坑文档
-tools/                PC 端联调脚本（WebRTC 观看端、中继协议仿真）
+
+需要在防火墙放行：
+
+| 协议 | 端口 | 用途 |
+|---|---|---|
+| TCP | 8443 | 信令服务器 |
+| UDP | 3478 | TURN 中继 |
+
+## 自己编译
+
+```bash
+# 需要 JDK 17、Android SDK 35
+./gradlew :app:assembleDebug
 ```
 
-## 构建
+产物在 `app/build/outputs/apk/debug/`
 
-1. Android Studio（AGP 8.x），`minSdk 29`（AudioPlaybackCapture 需要 Android 10+），仅 arm64；
-2. 把 `AppState.kt` 里的 `YOUR_RELAY_HOST` 换成你自己的中继地址，
-   `RtcEngine.kt` 里的 `REPLACE_WITH_YOUR_TURN_SECRET` 换成你的 coturn RESTful 密钥；
-3. `./gradlew assembleDebug`。
+## 技术栈
 
-中继部署：`node relay/relay.js`（默认 8724 端口），TURN 用 coturn `use-auth-secret` 模式，密钥与 App 一致。
+- Kotlin 2.0.21 + Jetpack Compose
+- WebRTC（H.264 硬件编解码）
+- scrcpy 内核
+- OkHttp + WebSocket
 
-## 隐私与安全设计
+## 说明
 
-- 被控端每次连接都需本机弹窗允许，超时 60s 自动拒绝；
-- 状态栏常驻通知，一键停止共享；
-- 配对码一次性，可点按刷新；
-- 刻意**不采集麦克风**：只传被控端正在播放的媒体声，避免变成"远程监听"；
-- 中继只转发密文信令/帧，不落盘内容。
+本项目的技术方案和部分代码基于开源项目 [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android)
+（作者 [hqw700](https://github.com/hqw700)，Apache-2.0）开发，
+服务端使用 [ScrcpyOverWebRTC](https://github.com/hqw700/ScrcpyOverWebRTC)。
 
-## 免责声明
+界面、品牌、功能和文案为本项目定制，底层依赖：
 
-本项目仅供学习研究与亲密关系内的互信使用。未经对方明确同意对他人设备进行远程控制
-属于违法行为。使用者需自行确保符合当地法律与平台规则。
+- [scrcpy](https://github.com/Genymobile/scrcpy) — Apache-2.0
+- [Shizuku](https://github.com/RikkaApps/Shizuku) — Apache-2.0
+- [WebRTC](https://webrtc.org/) — BSD-3-Clause
 
-## License
+## 许可
 
-MIT © HandLink contributors
+Apache License 2.0
+
+---
+
+<p align="center">
+  <sub>做给我们的</sub>
+</p>

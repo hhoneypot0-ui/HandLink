@@ -1,0 +1,327 @@
+package com.yuyu.handlink.ui.home
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yuyu.handlink.core.util.Formatters
+import com.yuyu.handlink.data.model.Device
+import com.yuyu.handlink.data.model.Tag
+import com.yuyu.handlink.data.realtime.SocketState
+import com.yuyu.handlink.data.repo.Snapshot
+import com.yuyu.handlink.ui.common.EmptyState
+import com.yuyu.handlink.ui.common.Pill
+import com.yuyu.handlink.ui.common.StatusDot
+import com.yuyu.handlink.ui.theme.AppColors
+
+fun parseTagColor(hex: String, fallback: Color = AppColors.Brand): Color = runCatching {
+    Color(android.graphics.Color.parseColor(hex))
+}.getOrDefault(fallback)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DevicesTab(vm: HomeViewModel, onOpen: (Device) -> Unit, onMore: (Device) -> Unit) {
+    val list by vm.filtered.collectAsStateWithLifecycle()
+    val all by vm.devices.collectAsStateWithLifecycle()
+    val snapshots by vm.snapshots.collectAsStateWithLifecycle()
+    val tags by vm.tags.collectAsStateWithLifecycle()
+    val filter by vm.filter.collectAsStateWithLifecycle()
+    val loading by vm.loading.collectAsStateWithLifecycle()
+    val error by vm.error.collectAsStateWithLifecycle()
+    val socket by vm.socketState.collectAsStateWithLifecycle()
+    val app by vm.appSettings.collectAsStateWithLifecycle()
+
+    Column(Modifier.fillMaxSize()) {
+        // 只有两台手机，不需要搜索和筛选
+        if (socket == SocketState.RECONNECTING) {
+            Surface(color = AppColors.Warning.copy(alpha = 0.15f), modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.WifiOff, null, tint = AppColors.Warning, modifier = Modifier.size(16.dp))
+                    Text("  实时连接中断，正在重连…", style = MaterialTheme.typography.bodySmall, color = AppColors.Warning)
+                }
+            }
+        }
+
+        PullToRefreshBox(isRefreshing = loading, onRefresh = { vm.refresh() }, modifier = Modifier.fillMaxSize()) {
+            when {
+                list.isEmpty() && error != null && all.isEmpty() -> EmptyState(
+                    Icons.Outlined.CloudOff, "无法加载设备", error?.message,
+                    action = { Button(onClick = { vm.refresh() }) { Text("重试") } }
+                )
+                list.isEmpty() && !loading -> EmptyState(
+                    Icons.Outlined.PhoneAndroid,
+                    if (all.isEmpty()) "还没有连上手机" else "没有符合条件的设备",
+                    if (all.isEmpty()) "在两台手机上都打开「牵手远程」，一台点「让对方看我的屏幕」，另一台点「我要看对方」" else "调整搜索或筛选条件试试",
+                )
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Fixed(app.gridColumns),
+                    contentPadding = PaddingValues(12.dp, 4.dp, 12.dp, 96.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(list, key = { it.id }) { d ->
+                        DeviceCard(
+                            device = d,
+                            snapshot = snapshots[d.id],
+                            tags = tags.deviceTags[d.id].orEmpty().mapNotNull { id -> tags.tags.firstOrNull { it.id == id } },
+                            compact = app.gridColumns >= 3,
+                            onClick = { onOpen(d) },
+                            onLongClick = { onMore(d) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchBar(query: String, onQuery: (String) -> Unit, columns: Int, onColumns: (Int) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        TextField(
+            value = query,
+            onValueChange = onQuery,
+            placeholder = { Text("搜索手机") },
+            leadingIcon = { Icon(Icons.Filled.Search, null) },
+            singleLine = true,
+            shape = RoundedCornerShape(50),
+            colors = TextFieldDefaults.colors(
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+            modifier = Modifier.weight(1f).height(52.dp),
+        )
+        Box {
+            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.GridView, "布局") }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                (1..4).forEach { n ->
+                    DropdownMenuItem(
+                        text = { Text((if (n == columns) "● " else "　") + "每行 $n 台") },
+                        onClick = { menu = false; onColumns(n) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterRow(vm: HomeViewModel, filter: DeviceFilter, tags: List<Tag>, all: List<Device>) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        StatusFilter.entries.forEach { sf ->
+            val count = when (sf) {
+                StatusFilter.ALL -> all.size
+                StatusFilter.ONLINE -> all.count { it.online }
+                StatusFilter.IN_USE -> all.count { it.online && it.inUse }
+                StatusFilter.OFFLINE -> all.count { !it.online }
+            }
+            FilterChip(
+                selected = filter.status == sf,
+                onClick = { vm.setFilter { it.copy(status = sf) } },
+                label = { Text("${sf.label} $count") },
+            )
+        }
+        tags.forEach { t ->
+            val sel = t.id in filter.tagIds
+            FilterChip(
+                selected = sel,
+                onClick = { vm.setFilter { f -> f.copy(tagIds = if (sel) f.tagIds - t.id else f.tagIds + t.id) } },
+                label = { Text(t.name) },
+                leadingIcon = { StatusDot(parseTagColor(t.color)) },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DeviceCard(
+    device: Device,
+    snapshot: Snapshot?,
+    tags: List<Tag>,
+    compact: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptic = LocalHapticFeedback.current
+    // 画面比例优先取当前快照的真实比例（虚机应用横屏时快照为横向，避免被压扁/裁切），
+    // 无快照时回退到设备屏幕比例。
+    val snapRatio = snapshot?.let { s ->
+        val w = s.bitmap.width.toFloat(); val h = s.bitmap.height.toFloat()
+        if (w > 0 && h > 0) (w / h) else null
+    }
+    val ratio = (snapRatio ?: device.info.primaryDisplay?.let { it.width.toFloat() / it.height } ?: (9f / 19.5f))
+        .coerceIn(0.4f, 2.5f)
+    Card(
+        modifier = modifier.fillMaxWidth().combinedClickable(
+            onClick = onClick,
+            onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() },
+        ),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Box(Modifier.fillMaxWidth().aspectRatio(ratio).clip(MaterialTheme.shapes.medium).background(Color(0xFF111318))) {
+            if (device.info.projectionOnDemand) {
+                Text(
+                    "在线协助\n未开启无人值守时需在手机上确认",
+                    modifier = Modifier.align(Alignment.Center).padding(8.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            } else if (snapshot != null) {
+                Image(
+                    bitmap = remember(snapshot.version) { snapshot.bitmap.asImageBitmap() },
+                    contentDescription = null,
+                    // 卡片比例已随快照，Fit 保证不裁切不变形
+                    contentScale = ContentScale.Fit,
+                    colorFilter = if (!device.online || device.screenOff) ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) else null,
+                    alpha = if (device.online) 1f else 0.45f,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Icon(
+                    if (device.online) Icons.Outlined.PhoneAndroid else Icons.Outlined.CloudOff, null,
+                    tint = Color.White.copy(alpha = 0.25f),
+                    modifier = Modifier.align(Alignment.Center).size(if (compact) 28.dp else 40.dp)
+                )
+            }
+            if (device.online && device.screenOff) {
+                Icon(
+                    Icons.Outlined.DarkMode, "息屏", tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.align(Alignment.Center).size(28.dp)
+                )
+            }
+            // 顶部状态
+            Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                // 在线时不显示标签（默认状态），只在异常/占用时提示
+                if (!device.online) {
+                    Pill("不在线", AppColors.Offline, filled = true)
+                } else if (device.inUse) {
+                    Pill("正在看", AppColors.Busy, filled = true)
+                }
+                device.myLeaseRemainingSeconds?.let { rem ->
+                    if (!compact) Pill(Formatters.duration(rem), if (rem < 86400) AppColors.Danger else Color.White, filled = rem < 86400)
+                }
+            }
+            // 底部信息
+            Column(
+                Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))))
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                if (tags.isNotEmpty()) {
+                    if (compact) {
+                        // 紧凑布局（3–4 列）空间不足以显示文字，用彩色圆点表示已打标签
+                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            tags.take(4).forEach {
+                                Box(Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(parseTagColor(it.color)))
+                            }
+                        }
+                        Spacer(Modifier.height(3.dp))
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            tags.take(3).forEach { Pill(it.name, parseTagColor(it.color), filled = true) }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+                Text(
+                    device.displayName, color = Color.White,
+                    style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+                if (!compact) {
+                    val subText = listOfNotNull(
+                        device.info.title.takeIf { it.isNotBlank() },
+                        device.info.androidVersion.takeIf { it.isNotBlank() }?.let { "Android $it" }
+                    ).joinToString(" · ")
+                    if (subText.isNotBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                subText,
+                                color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (device.leaseHolder != null) {
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Outlined.Timer, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp))
+                                Text(device.leaseHolder, color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

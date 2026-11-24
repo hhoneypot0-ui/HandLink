@@ -1,82 +1,86 @@
-# HandLink 架构与踩坑实录
+# HandLink 架构设计
 
-这份文档记录了一个"手机互控 App"从 scrcpy 思路到 WebRTC、再回到原生 H264 管线的完整工程决策链。
-所有结论都来自两台真机（低端 MTK Android 11 + 旗舰 Android 17）的实测日志。
+云手机 Android 控制端。通过信令服务器（`webrtc-operator/standalone`）发现设备，与设备上的 `cloudphone-agent` 建立 WebRTC P2P 连接：视频/音频走媒体轨，控制走 DataChannel。
 
-## 1. 推流管线的三次转向
+```
+[Android App] ──HTTPS/WSS──> [信令服务器] <──WS── [cloudphone-agent (设备)]
+      └──────────── WebRTC P2P（DTLS-SRTP + SCTP DataChannel）────────────┘
+```
 
-### v1：MediaProjection + MediaCodec 硬编 H264 + WebSocket（当前默认）
-- 720x1600@45fps，6.8Mbps，`KEY_LATENCY=0`、无 B 帧（scrcpy 同款低延迟配置）；
-- 新连接先补发 SPS/PPS（`BUFFER_FLAG_CODEC_CONFIG`）再要一个同步帧，否则解码器永远起不来；
-- 静止画面保活：`KEY_REPEAT_PREVIOUS_FRAME_AFTER=100ms`，不然投屏页看起来"卡死"。
+## 分层
 
-### v2：WebRTC（自适应码率）
-动机：网络在变，固定码率必然翻车。OPPO 官方互控用的 ortc 内部同样是
-BitrateAllocation / DynamicFrameRateManager 这套自适应思路。
+包名 `com.yuyu.handlink`，依赖方向只能自上而下：`ui → rtc / data → core`。
 
-### v3：混合现状
-WebRTC 链路全通（ICE/DTLS/SRTP/DataChannel），但**官方预编译 AAR 不含 OpenH264**
-（Google 因专利费从预编译产物里剥离），低端 MTK 机 `DefaultVideoEncoderFactory`
-硬编探测又失败 → offer 里只剩 VP8 → 只剩软编 VP8 一条路 → CPU 打爆、画质糊。
-因此当前默认 `useRtc=false` 走 v1 硬编管线；WebRTC 保留并继续攻关
-（升级路线：换 M121+ 的社区预编译库或自编译带 H264 的 libwebrtc）。
+| 层 | 目录 | 职责 |
+|---|---|---|
+| core | `core/net` `core/security` `core/util` | 服务器地址、HTTP 客户端、TLS 信任、加密存储、时间/格式化工具。不依赖任何业务 |
+| data | `data/api` `data/auth` `data/model` `data/realtime` `data/repo` `data/settings` | REST 接口、登录态、领域模型与 JSON 解析、仪表盘实时 WS、设备/标签/快捷文本仓库、本地设置 |
+| rtc | `rtc` `rtc/signaling` `rtc/channel` | 信令、PeerConnection 会话、DataChannel 协议（输入/剪贴板/文件/终端）、统计、会话管理 |
+| ui | `ui/*` | Jetpack Compose 界面 + ViewModel |
 
-## 2. "黑屏"根因链（0.4.12 → 0.4.21，十版逐层剥离）
+依赖注入为手写容器 `HandLinkApp.kt` 中的 `AppContainer`，通过 `Context.container` 获取：
+- **进程级**：`secureStore` `pinStore` `httpFactory` `settings` `sessions` `rtcEngine` `streamSessions`
+- **登录会话级**：`userScope()` 返回 `UserScope(devices, quickTexts)`；登录态变化时整体重建，避免跨账号数据串用
 
-一个"控制端黑屏"问题，实际叠了 7 层 bug，每修一层露出下一层：
+## core
 
-1. **无日志**：ColorOS 屏蔽第三方 logcat → 所有关键事件改写
-   `getExternalFilesDir()/rtc_diag.txt`，adb pull 取证；
-2. **看门狗没启动**：`running` 标志从未置 true，线程 while 条件直接退出——
-   教训：埋点本身也要被测试；
-3. **双 offer 竞态**：`addTrack` 触发 `onRenegotiationNeeded` 自动发一次 offer，
-   配对允许后又显式发一次 → 对端建两条接收轨，渲染器挂在死轨上
-   （解码统计在涨、屏幕 0 帧的诡异现象由此而来）。
-   修复：negotiating 锁 + signalingState 守卫 + 建轨期自动 offer 压制；
-4. **渲染器补挂**：Compose 的 AndroidView 工厂执行时 track 早已到达，
-   `attachRenderer` 只注册"未来回调"不给已存在的 track 加 sink → 永远 0 帧。
-   修复：注册回调的同时立即补挂现有 track（removeSink+addSink 保幂等）；
-5. **native 崩溃**：看门狗线程 close/recreate PeerConnection 与信令线程的
-   `nativeAddIceCandidate` 竞争已失效的 native 指针 → SIGSEGV（fault addr 尾缀恒定，
-   典型的同一失效基址）。Java 对象还活着 ≠ native 对象还活着。
-   修复：`engineAlive` 标志守卫所有信令入口 + pcGate 锁串行化 pc 生命周期；
-6. **码率失控**：关掉 CPU 过载探测后软编全速狂飙，80 秒灌出 236MB（≈24Mbps），
-   热点上行被打爆 → ICE DISCONNECTED → 触摸通道（DataChannel）死亡，
-   表现为"看着正常但点不动"。修复：encodings.maxBitrate 封顶 + 重开过载探测；
-7. **终极真相**：以上全修完，低端 MTK 软编 VP8 依然又卡又糊——
-   这不是 bug，是路线问题，回到 v1 硬编管线。
+- `ServerEndpoint`：宽松解析用户输入（缺协议默认 https，缺端口默认 8443，支持 IPv6，拒绝 `user:pass@host`）。`key` 用于证书固定。
+- `HttpClientFactory`：所有 OkHttpClient 派生自同一根 client（共享连接池）；按端点缓存，REST 与 WebSocket 各一份（WS 无读超时 + 25s ping）。
+- **TLS 信任**（`PinningTrustManager` + `CertificatePinStore`）：先走系统 CA；失败时仅当叶子证书 SHA-256 与用户确认过的指纹一致才放行（TOFU）。证书变更会抛出 `UntrustedCertificateException(changed=true)`，UI 红色警告。不存在任何“信任所有证书”的路径。`network_security_config.xml` 只信任系统 CA，不信任用户安装的 CA。
+- `FragmentingSocketFactory`：把 TLS ClientHello 拆成两个 TCP 段（间隔 10ms）发送。原因：部分网络（实测 app.github.com/hhoneypot0-ui/HandLink:8899 的出口/网关）对“单包内携带 SNI 的 ClientHello”直接断连；浏览器的 ~1.5KB 后量子 ClientHello 天然跨包不受影响，Android 的 ~0.5KB 单包被拦。只在 HTTPS/WSS 客户端启用。
+- `SecureStore`：Android Keystore AES-256-GCM 加密的 SharedPreferences。存登录 token、记住的密码。Keystore 失效时清空数据退化为“需重新登录”。
+- `ApiException`：密封类，统一网络/HTTP/业务/解析/证书错误，UI 只按子类处理。
 
-## 3. 音频：只传"它正在放的"，不传"它周围的"
+## data
 
-- 需求红线：能听到对方手机里的视频/音乐声，**绝不做成电话**（不传麦克风/环境音）；
-- 曾经的元凶：WebRTC `createAudioSource()` 默认抓麦克风上传，整条轨删除；
-- 现方案：`AudioPlaybackCapture`（Android 10+）→ AAC 硬编 → WebSocket；
-- 坑：部分 MTK 机型 playback capture 返回全零 → 加能量探针（peak 采样）诊断；
-  AudioTrack 会"假死"（playState=1 但 write 恒 0）→ 2 秒无成功写入即重建 track，
-  并在 USAGE_MEDIA / VOICE_COMMUNICATION / NOTIFICATION 三种属性间轮转；
-- 新连接必须补发 AAC 的 AudioSpecificConfig，否则解码器永远起不来（静音假象）。
+- `ApiClient`：鉴权头、错误归一化（服务端错误体可能是纯文本 `http.Error` 或 `{error}`/`{msg}` JSON，常见英文错误转中文）、401 回调登出、`{code,msg,data}` 信封解析。
+- `CloudPhoneApi`：对齐信令服务器路由表（`/api/login` `/api/me` `/devices` `/api/tags` `/api/quick_texts` `/api/share/*` `/api/admin/users*` `/api/devices/{id}` 等）。
+- `SessionRepository`：登录态（token 只存 SecureStore）、最近服务器列表（明文 prefs，仅 URL+用户名）、记住密码（按 服务器+用户名 隔离加密保存）。收到 401 自动登出，`logoutReason` 供登录页提示。
+- `DashboardSocket`：`/connect_client` 不发 `connect` 即为纯订阅模式，接收 `device_list_update` `snapshot_update` `snapshot_updated` `tags_update` `device_screen_state`。指数退避重连，20s 应用层 ping。
+- `DeviceRepository`：设备列表 / 缩略图 / 标签 / 账号信息。实时推送为主，HTTP 轮询兜底；缩略图按 ETag 拉取、降采样 RGB_565。`setActive(false)` 时关闭长连接与轮询（投屏期间首页不可见，自动让出带宽）。
+- `SettingsRepository`：画质（`StreamSettings` + `QualityPreset` 档位）与应用偏好（主题、宫格列数、振动、亮屏、剪贴板同步、导航键、性能浮层、自动重连、屏幕方向）。
 
-## 4. 触摸：纯透传哲学
+## rtc
 
-- 控制端整屏一个 `pointerInput`，Press/Move/Release 原样序列化发送，
-  **不做本地 tap/长按/滑动判定**——判定交给被控端系统，才"像摸自己的屏"；
-- Move 补发 Compose 的 historical 采样点，4ms 节流；
-- 被控端 `dispatchGesture`（无障碍）注入，坐标按被控端真实分辨率归一化还原；
-- 无障碍服务在 force-stop/重装后会被系统解绑，App 启动时自检并引导重开。
+### 会话模型
+- `StreamTarget`：一次投屏的全部不可变输入（端点、设备、鉴权、权限、模式 Screen/Camera、画质、分辨率提示）。**修改画质 / 切换镜头 / 切换设备 = 以新 target 重建会话**（agent 协议不支持运行时切换）。
+- `RtcEngine`：进程级 EglBase + PeerConnectionFactory，跨会话复用（EglBase 若随会话释放，重连后渲染器黑屏）。
+- `RtcSession`：一次完整连接。**所有状态变更与 PeerConnection/DataChannel 生命周期都在单线程 executor 上执行**，WebRTC/OkHttp 回调一律转投，消除竞态与死通道访问。阶段 `ConnectionPhase`：Signaling → WaitingOffer → Negotiating → Connected（Interrupted 为 ICE 瞬断宽限 8s）→ Failed/Closed。超时：连接 25s，首帧 15s。
+- `SessionManager`：进程级，同一时刻一个会话。页面重建直接复用；页面不可见只停止渲染，保活 5 分钟后断开；可恢复错误在前台自动重连（指数退避，最多 3 次）。
 
-## 5. 中继与 NAT
+### 信令（`rtc/signaling`）
+- 登录用户：`Authorization: Bearer` 头；分享访客：`?share_token=&share_pwd=`（服务端只支持 query）。
+- 流程：WS open → `connect{device_id}` → 收 `config{ice_servers}` → 建 PC 并**在协商前创建 `file-channel` / `adb-channel`** → 发 `forward{request-offer, scrcpy_options}` → 收 offer → 回 answer → 互换 candidate。
+- `ScrcpyOptions`：`video_source` 两种模式都必须显式发送（agent 跨会话保留上次取值）。
 
-- 自建 Node 房间制信令中继（join/pair/accept + rtc-offer/answer/ice 透传）；
-- coturn RESTful 凭证（HMAC-SHA1 时效密钥）做 TURN 兜底；
-- 信令双通道同发（局域网 socket + 中继）：写死优先级的做法导致过
-  "offer 发进没人听的通道、永远黑屏"；
-- ICE 埋点全程落盘：`ice CONNECTED/DISCONNECTED/FAILED` + 每 4s bytesSent 曲线，
-  是定位第 6 节码率失控的直接证据。
+### DataChannel（`rtc/channel`）
+| 通道 | 创建方 | 协议类 | 内容 |
+|---|---|---|---|
+| `input-channel` | agent | `InputProtocol` | `touch` `inject_keycode` `inject_text` `inject_scroll` `hard_keyboard` |
+| `clipboard-channel` | agent | `ClipboardProtocol` | `set_clipboard` / `get_clipboard` / 收 `clipboard`，带防回环 |
+| `file-channel` | 本端 | `FileTransferClient` | list/mkdir/delete、上传（SHA-256 + 16KB 分块 + 流控）、下载、install_apk |
+| `adb-channel` | 本端 | `TerminalChannel` | 首帧 `{"type":"init","rows","cols"}` 后双向裸字节（PTY）。**agent 不支持 resize** |
 
-## 6. 工程方法
+- `SafeChannel`：DataChannel 安全封装。native 释放后再调用会 SIGSEGV（try/catch 拦不住），所以 send/state 都在锁内判 `closed`；回调只拷贝数据后转投 executor，signaling 线程永不等待本锁（防死锁）。
+- 触控坐标系是**设备逻辑分辨率**（`device_info.displays[0]`，方向不一致时宽高互换），不是编码后的视频帧尺寸。用错会被 agent 静默丢弃。
 
-- **文件诊断日志**是被国产 ROM 屏蔽 logcat 后唯一可靠的观测面；
-- **看门狗必须测到"它真的在跑"**（running 标志 bug 让看门狗静默了三版）；
-- 每版必升 versionCode、装机必 force-stop、APK 文件名带构建时间；
-- 双 agent 协作 + 交接文档（谁改哪些文件、坑清单、设备状态），
-  本项目 HANDOFF 流程沉淀了大部分上述结论。
+## ui
+
+- `ui/MainActivity`：未登录 → `LoginScreen`；已登录 → NavHost（home / shares / users / tags / quick_texts / stream_settings / app_settings / certs / about）。
+- `ui/home`：底部导航“设备 / 管理（仅 admin）/ 我的”。设备宫格（1–4 列）、状态/标签筛选、长按设备菜单（投屏、摄像头监控、分享、标签、信息、删除离线档案）。
+- `ui/manage`：分享与卡密（创建/延期/撤销/复制/发送）、用户管理（新建/有效期与权限/备注/重置密码/踢下线/删除）、标签管理、快捷文本。
+- `ui/stream`：`StreamActivity` 全屏沉浸。
+  - `StreamLauncher`：StreamTarget 含凭据，只在进程内存传递，不进 Intent extras。
+  - `VideoArea` 等比居中；`TouchForwarder` + `TouchMapper` 多点触控、鼠标右键=返回、滚轮。
+  - 悬浮球（点击=工具面板，长按=设备侧边栏）、左侧边缘把手 `›`（打开设备侧边栏）、虚拟导航键。
+  - 工具面板：电源/音量/通知栏/截图、键盘输入/文本下发/剪贴板、文件/安装应用/终端、切换设备/画质/声音/性能/连接信息/重连/断开。
+  - `DeviceDrawer`：投屏中切换设备（`StreamViewModel.switchDevice`），侧边栏打开期间每 10s 刷新设备列表。
+  - 终端 `TerminalWebView`：**必须懒创建**（进程内初始化 Chromium 后部分机型 libwebrtc 枚举不到 H264 硬解）；只加载 `file:///android_asset/terminal`，拦截所有跳转、禁止网络。
+  - 摄像头监控：镜头/分辨率/帧率选择、环境音、镜像、抓拍、双指数字变焦（改 SurfaceView 尺寸实现）。
+
+## 安全要点
+- 凭据：token 与记住的密码只在 SecureStore；`allowBackup=false`，`data_extraction_rules` 排除全部数据。
+- TLS：系统 CA + TOFU 指纹固定，绝不 trust-all。HTTP 明文仅为兼容服务端 `-tls=false`，登录页会提示。
+- 权限最小化：仅 INTERNET / ACCESS_NETWORK_STATE / MODIFY_AUDIO_SETTINGS。文件走 SAF，截图走 MediaStore。
+- 仅观看分享：客户端 `InputProtocol` 拦截 + 服务端信令层拦截双重保护。
+- release 签名凭据只从 gradle 属性 / `local.properties` / 环境变量读取，不入库。
