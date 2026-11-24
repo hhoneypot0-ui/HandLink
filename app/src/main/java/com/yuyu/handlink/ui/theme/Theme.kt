@@ -46,7 +46,25 @@ private val Light = lightColorScheme(
     error = AppColors.Danger,
 )
 
-/** 「蓝色」主题：深海蓝底 + 亮蓝点缀 */
+/** 「蓝色」主题：白底 + 蓝色点缀（和粉色一样是亮色，只换主色） */
+private val Blue = lightColorScheme(
+    primary = Color(0xFF3B7DD8),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFDCE9FB),
+    onPrimaryContainer = Color(0xFF17335C),
+    secondary = Color(0xFF546A85),
+    secondaryContainer = Color(0xFFE3ECF7),
+    background = Color(0xFFF7FAFD),
+    surface = Color.White,
+    surfaceVariant = Color(0xFFEDF3FA),
+    surfaceContainer = Color(0xFFF2F7FC),
+    surfaceContainerHigh = Color(0xFFEAF1F9),
+    outline = Color(0xFFC3CFDD),
+    outlineVariant = Color(0xFFDDE6F0),
+    error = Color(0xFFEF4444),
+)
+
+/** 系统深色模式用的深色主题 */
 private val Dark = darkColorScheme(
     primary = Color(0xFF7FB3FF),
     onPrimary = Color(0xFF04203F),
@@ -87,16 +105,22 @@ private val AppShapes = Shapes(
 
 @Composable
 fun HandLinkTheme(mode: ThemeMode = ThemeMode.SYSTEM, dynamic: Boolean = false, content: @Composable () -> Unit) {
-    val dark = when (mode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-    }
     val ctx = LocalContext.current
-    val scheme = when {
-        dynamic && Build.VERSION.SDK_INT >= 31 -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-        dark -> Dark
-        else -> Light
+    val scheme = when (mode) {
+        // 粉色：白底粉字
+        ThemeMode.LIGHT -> Light
+        // 蓝色：白底蓝字
+        ThemeMode.DARK -> Blue
+        // 跟随系统：系统深色才用深色
+        ThemeMode.SYSTEM -> {
+            val dark = isSystemInDarkTheme()
+            when {
+                dynamic && Build.VERSION.SDK_INT >= 31 ->
+                    if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+                dark -> Dark
+                else -> Light
+            }
+        }
     }
     MaterialTheme(colorScheme = scheme, typography = AppTypography, shapes = AppShapes, content = content)
 }

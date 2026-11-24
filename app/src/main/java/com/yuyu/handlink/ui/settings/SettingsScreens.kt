@@ -322,7 +322,7 @@ fun AppSettingsScreen(repo: SettingsRepository, onBack: () -> Unit) {
                         ThemeMode.LIGHT, a.themeMode,
                     ) { repo.updateApp { it.copy(themeMode = ThemeMode.LIGHT) } }
                     ThemeOption(
-                        "蓝色", "深蓝底，晚上看着不刺眼",
+                        "蓝色", "白底蓝字，清爽一点",
                         ThemeMode.DARK, a.themeMode,
                     ) { repo.updateApp { it.copy(themeMode = ThemeMode.DARK) } }
                 }
