@@ -74,6 +74,7 @@ import yunyun.xiangxiang.handlink.ui.common.EmptyState
 import yunyun.xiangxiang.handlink.ui.common.Pill
 import yunyun.xiangxiang.handlink.ui.common.StatusDot
 import yunyun.xiangxiang.handlink.ui.theme.AppColors
+import androidx.compose.ui.text.font.FontWeight
 
 fun parseTagColor(hex: String, fallback: Color = AppColors.Brand): Color = runCatching {
     Color(android.graphics.Color.parseColor(hex))
@@ -109,11 +110,15 @@ fun DevicesTab(vm: HomeViewModel, onOpen: (Device) -> Unit, onMore: (Device) -> 
                     Icons.Outlined.CloudOff, "无法加载设备", error?.message,
                     action = { Button(onClick = { vm.refresh() }) { Text("重试") } }
                 )
-                list.isEmpty() && !loading -> EmptyState(
-                    Icons.Outlined.PhoneAndroid,
-                    if (all.isEmpty()) "还没有连上手机" else "没有符合条件的设备",
-                    if (all.isEmpty()) "在两台手机上都打开「牵手远程」，一台点「让对方看我的屏幕」，另一台点「我要看对方」" else "调整搜索或筛选条件试试",
-                )
+                list.isEmpty() && !loading -> if (all.isEmpty()) {
+                    NoDeviceGuide()
+                } else {
+                    EmptyState(
+                        Icons.Outlined.PhoneAndroid,
+                        "没有符合条件的设备",
+                        "换个筛选条件试试",
+                    )
+                }
                 else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(app.gridColumns),
                     contentPadding = PaddingValues(12.dp, 4.dp, 12.dp, 96.dp),
@@ -321,6 +326,89 @@ fun DeviceCard(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** 一台设备都没有时的引导：用两个角色卡片，一眼看懂谁做什么 */
+@Composable
+private fun NoDeviceGuide() {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            Modifier
+                .size(64.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), RoundedCornerShape(50)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.PhoneAndroid, null,
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp),
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+        Text("还没有连上手机", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "两台手机都要打开 App，同一个账号登录",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(22.dp))
+
+        RoleStep(
+            num = "1",
+            title = "被看的那台",
+            lines = listOf("我的 → 让对方看我的屏幕", "点「让对方连进来」"),
+        )
+        Spacer(Modifier.height(10.dp))
+        RoleStep(
+            num = "2",
+            title = "要看的那台",
+            lines = listOf("回到这一页", "点对方那台手机"),
+        )
+    }
+}
+
+@Composable
+private fun RoleStep(num: String, title: String, lines: List<String>) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            Modifier
+                .size(26.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), RoundedCornerShape(50)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                num,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(3.dp))
+            lines.forEach { line ->
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
