@@ -88,6 +88,8 @@ import yunyun.xiangxiang.handlink.ui.common.StatusDot
 import yunyun.xiangxiang.handlink.ui.common.SwitchRow
 import yunyun.xiangxiang.handlink.ui.theme.AppColors
 import androidx.compose.ui.draw.clip
+import yunyun.xiangxiang.handlink.ui.common.SettingRow
+import androidx.compose.material.icons.outlined.Tune
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -145,6 +147,7 @@ fun HostScreen(
         )
     }
 
+    var advanced by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -240,7 +243,16 @@ fun HostScreen(
             }
 
             // 连接与信令配置
-            SectionCard(title = "连接与信令配置") {
+                        SectionCard {
+                SettingRow(
+                    title = "高级设置",
+                    subtitle = if (advanced) "点这里收起" else "服务器地址、日志、无人值守等（一般不用改）",
+                    icon = Icons.Outlined.Tune,
+                    onClick = { advanced = !advanced },
+                )
+            }
+
+            if (advanced) SectionCard(title = "服务器与设备") {
                 Column(Modifier.padding(16.dp)) {
                     OutlinedTextField(
                         value = state.prefs.signalingUrl,
@@ -291,9 +303,9 @@ fun HostScreen(
             }
 
             // 执行引擎与保活选项
-            SectionCard(title = "运行引擎与守护") {
+            SectionCard(title = "用哪种方式") {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Text("选择执行引擎", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text("推荐用「系统录屏」", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Column(Modifier.fillMaxWidth()) {
                         EngineOption(
@@ -348,7 +360,7 @@ fun HostScreen(
                     onChange = { vm.updatePrefs { p -> p.copy(autoStart = it) } }
                 )
                 if (state.prefs.runMode == RunMode.PROJECTION) {
-                    TextButton(
+                    if (advanced) TextButton(
                         enabled = standby.unattended || (standby.online && unattendedTicket == null),
                         onClick = {
                             if (standby.unattended) {
@@ -377,7 +389,7 @@ fun HostScreen(
                     ) {
                         Text(if (standby.unattended) "结束亮屏无人值守" else "开启亮屏无人值守")
                     }
-                    Text(
+                    if (advanced) Text(
                         "无人值守开启后，远端连接无需手机确认。请保持手机亮屏并解锁。",
                         modifier = Modifier.padding(horizontal = 16.dp),
                         style = MaterialTheme.typography.bodySmall
@@ -386,11 +398,11 @@ fun HostScreen(
                         TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
                             Text(if (touchReady) "远程触控已开启" else "开启远程触控")
                         }
-                        TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS)) }) {
+                        if (advanced) TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS)) }) {
                             Text("调整自动灭屏时间")
                         }
                     }
-                } else SwitchRow(
+                } else if (advanced) SwitchRow(
                     title = "前台常驻与防休眠",
                     enabled = !state.serviceRunning && !state.isBusy,
                     subtitle = "显示常驻状态通知并持有 WakeLock，防止手机灭屏时被系统休眠杀死",
@@ -400,7 +412,7 @@ fun HostScreen(
             }
 
             // 终端实时日志
-            SectionCard(title = "终端实时日志") {
+            if (advanced) SectionCard(title = "运行日志") {
                 Column(Modifier.padding(14.dp)) {
                     Row(
                         Modifier.fillMaxWidth(),
