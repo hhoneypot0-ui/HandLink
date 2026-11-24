@@ -90,6 +90,19 @@ android {
         }
     }
 
+    // 两套架构：新机型 arm64，老机型 arm32
+    flavorDimensions += "arch"
+    productFlavors {
+        create("arm64") {
+            dimension = "arch"
+            ndk { abiFilters.clear(); abiFilters.add("arm64-v8a") }
+        }
+        create("arm32") {
+            dimension = "arch"
+            ndk { abiFilters.clear(); abiFilters.add("armeabi-v7a") }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true

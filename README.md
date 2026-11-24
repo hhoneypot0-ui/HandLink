@@ -4,8 +4,11 @@
   <a href="https://hhoneypot0-ui.github.io/HandLink/">
     <img src="https://img.shields.io/badge/🌐_官网-在线预览-FF98BE?style=for-the-badge" alt="官网">
   </a>
-  <a href="https://github.com/hhoneypot0-ui/HandLink/releases/latest">
-    <img src="https://img.shields.io/badge/⬇_下载-APK_v2.0-F06292?style=for-the-badge" alt="下载">
+  <a href="https://github.com/hhoneypot0-ui/HandLink/releases/download/v2.0/HandLink-2.0-arm64.apk">
+    <img src="https://img.shields.io/badge/⬇_下载-64位版-F06292?style=for-the-badge" alt="下载 64 位">
+  </a>
+  <a href="https://github.com/hhoneypot0-ui/HandLink/releases/download/v2.0/HandLink-2.0-arm32.apk">
+    <img src="https://img.shields.io/badge/⬇_下载-32位版(老机型)-E57399?style=for-the-badge" alt="下载 32 位">
   </a>
 </p>
 
