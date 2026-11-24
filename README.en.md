@@ -109,9 +109,32 @@ Output in `app/build/outputs/apk/debug/`
 - scrcpy core
 - OkHttp + WebSocket
 
-## Credits
+## About this project
 
-Based on [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android).
+Built for the two of us — so we can see what the other is doing, no matter how far apart.
+
+### The long way around
+
+The first attempt was writing it from scratch: MediaProjection capture, MediaCodec H.264 encoding,
+WebSocket transport with a self-hosted relay. Over twenty iterations, and a long list of problems:
+
+- `createDecoderByType("video/avc")` returns a software decoder on some devices — had to name `c2.qti.avc.decoder.low_latency` explicitly
+- Hardware decoders need `csd-0` (SPS/PPS) before `configure()`, otherwise `dequeueOutputBuffer` spins on TRY_AGAIN
+- Static screens produce no frames without `repeat-previous-frame-after`
+- Green screens, black screens, and Surface size mismatches down to a single pixel
+- Remote touch coordinates must use the device's logical resolution, not the encoded frame size
+
+It came down to two blockers: capture frame rate (1-3fps on static content) and cross-carrier network stability.
+
+### A different approach
+
+Instead of fighting the stack, we built on parts that are already proven.
+
+The current version is built on [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android):
+scrcpy core for capture and encoding, WebRTC for transport.
+
+What we did was curate and polish — cutting features we don't use, keeping only "see the screen,
+control it, adjust quality", and rebuilding the interface around how we actually use it.
 
 ## License
 

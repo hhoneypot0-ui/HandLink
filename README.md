@@ -109,9 +109,32 @@ docker run -d --name cp-aio --network host --restart unless-stopped \
 - scrcpy 内核
 - OkHttp + WebSocket
 
-## 说明
+## 关于这个项目
 
-本项目基于 [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android) 开发。
+这个 App 是为我们两个人做的 —— 异地的时候，能随时看到对方在做什么。
+
+### 走过的路
+
+最早是打算自己从零写。MediaProjection 抓屏、MediaCodec 硬编 H.264、WebSocket 直连加自建中继，
+前后迭代了二十多个版本，踩的坑记了满满一页：
+
+- `createDecoderByType("video/avc")` 在部分机型上返回的是软件解码器，得手动指名 `c2.qti.avc.decoder.low_latency`
+- 硬解码器缺 `csd-0`（SPS/PPS），`dequeueOutputBuffer` 会一直返回 TRY_AGAIN
+- 静态画面不出帧，要手动打开 `repeat-previous-frame-after`
+- 绿屏、黑屏、Surface 尺寸差一像素就渲染异常
+- 远端触摸坐标必须用设备逻辑分辨率，用视频帧尺寸会被静默丢弃
+
+最后卡在两件事上：采集帧率上不去（静止画面只有 1~3fps），以及跨运营商网络的稳定性。
+
+### 换了个思路
+
+与其继续和底层较劲，不如把已经验证过的部分用起来。
+
+现在的版本建立在开源项目 [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android) 之上：
+采集编码走 scrcpy 内核，传输走 WebRTC，这两块都是经过大量实践打磨的。
+
+我们做的事是取舍和打磨 —— 砍掉用不上的功能，只留「看屏幕、直接操作、调画质」这几件，
+把界面和交互按我们自己的习惯重新做了一遍。
 
 ## 许可
 
