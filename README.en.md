@@ -111,15 +111,7 @@ Output in `app/build/outputs/apk/debug/`
 
 ## Credits
 
-This project is built on the open-source [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android)
-(by [hqw700](https://github.com/hqw700), Apache-2.0).
-Server side uses [ScrcpyOverWebRTC](https://github.com/hqw700/ScrcpyOverWebRTC).
-
-UI, branding, features and copy are customized for this project. Underlying dependencies:
-
-- [scrcpy](https://github.com/Genymobile/scrcpy) — Apache-2.0
-- [Shizuku](https://github.com/RikkaApps/Shizuku) — Apache-2.0
-- [WebRTC](https://webrtc.org/) — BSD-3-Clause
+Based on [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android).
 
 ## License
 

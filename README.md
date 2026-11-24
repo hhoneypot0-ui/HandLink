@@ -111,15 +111,7 @@ docker run -d --name cp-aio --network host --restart unless-stopped \
 
 ## 说明
 
-本项目的技术方案和部分代码基于开源项目 [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android)
-（作者 [hqw700](https://github.com/hqw700)，Apache-2.0）开发，
-服务端使用 [ScrcpyOverWebRTC](https://github.com/hqw700/ScrcpyOverWebRTC)。
-
-界面、品牌、功能和文案为本项目定制，底层依赖：
-
-- [scrcpy](https://github.com/Genymobile/scrcpy) — Apache-2.0
-- [Shizuku](https://github.com/RikkaApps/Shizuku) — Apache-2.0
-- [WebRTC](https://webrtc.org/) — BSD-3-Clause
+本项目基于 [WebrtcPhone-Android](https://github.com/hqw700/WebrtcPhone-Android) 开发。
 
 ## 许可
 
