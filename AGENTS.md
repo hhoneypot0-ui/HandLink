@@ -53,6 +53,6 @@ app/src/main/java/com/yuyu/handlink/
 ## 服务端
 
 ```
-信令：http://47.100.106.235:8443
+信令：http://YOUR_SERVER_HOST:8443   # 部署时替换为你自己的服务器地址
 镜像：buutuu/scrcpy-over-webrtc:latest
 ```
