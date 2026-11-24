@@ -49,6 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import yunyun.xiangxiang.handlink.rtc.ConnectionPhase
 import org.webrtc.SurfaceViewRenderer
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.graphicsLayer
 
 /**
  * 视频区域：按帧宽高比等比居中；摄像头模式下 zoom>1 时放大并由父布局裁剪（数字变焦）。
@@ -81,16 +84,22 @@ fun ConnectingOverlay(phase: ConnectionPhase, retry: Int, deviceName: String, on
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             ConnectionLogo()
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
+            androidx.compose.material3.CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                color = Color.White.copy(alpha = 0.85f),
+                strokeWidth = 2.dp,
+            )
+            Spacer(Modifier.height(10.dp))
             Text(deviceName, color = Color.White, style = MaterialTheme.typography.titleMedium)
             Text(
                 (if (retry > 0) "第 $retry 次重连 · " else "") + when (phase) {
-                    ConnectionPhase.Signaling -> "连接服务器…"
-                    ConnectionPhase.WaitingOffer -> "等待设备响应…"
-                    ConnectionPhase.WaitingProjection -> "等待手机用户确认共享屏幕…"
-                    ConnectionPhase.Negotiating -> "建立加密通道…"
-                    ConnectionPhase.Connected -> "等待首帧画面…"
-                    else -> "连接中…"
+                    ConnectionPhase.Signaling -> "正在联系对方…"
+                    ConnectionPhase.WaitingOffer -> "等对方接起来…"
+                    ConnectionPhase.WaitingProjection -> "对方正在同意，稍等一下…"
+                    ConnectionPhase.Negotiating -> "别急别急，快进来了哟"
+                    ConnectionPhase.Connected -> "快好了，马上就有画面"
+                    else -> "正在连…"
                 },
                 color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall
             )
@@ -103,60 +112,29 @@ fun ConnectingOverlay(phase: ConnectionPhase, retry: Int, deviceName: String, on
 @Composable
 private fun ConnectionLogo() {
     val animation = rememberInfiniteTransition(label = "连接动画")
-    val progress by animation.animateFloat(
-        initialValue = 0f,
+    val alpha by animation.animateFloat(
+        initialValue = 0.45f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Reverse),
-        label = "轮廓成形"
+        animationSpec = infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "呼吸"
     )
-    val cloud = remember {
-        PathParser().parsePathString(
-            "M284 776C157 776 92 689 92 584c0-111 83-196 193-200 28-139 139-225 269-225 " +
-                "151 0 257 116 265 247 106 1 177 83 177 185 0 110-89 185-204 185Z"
-        ).toPath()
-    }
-    val teal = remember {
-        PathParser().parsePathString(
-            "M762 388c135-17 234 73 234 198 0 117-85 190-201 190H663c-48-40-60-106-47-167 " +
-                "14-69 59-185 146-221Z"
-        ).toPath()
-    }
-    val trace = remember { Path() }
-    val measure = remember(cloud) { PathMeasure().apply { setPath(cloud, true) } }
-    val blue = Color(0xFF1671FF)
-    val mint = Color(0xFF12D9BC)
-    Canvas(Modifier.size(136.dp)) {
-        val reveal = FastOutSlowInEasing.transform(progress)
-        val fill = ((reveal - 0.45f) / 0.4f).coerceIn(0f, 1f)
-        val unit = size.minDimension / 1024f
-        withTransform({ scale(unit, unit, Offset.Zero) }) {
-            drawPath(cloud, blue.copy(alpha = 0.16f), style = Stroke(14f))
-            trace.reset()
-            measure.getSegment(0f, measure.length * reveal, trace)
-            drawPath(trace, Brush.linearGradient(listOf(blue, mint), Offset(140f, 0f), Offset(920f, 800f)), style = Stroke(14f))
-            drawPath(cloud, blue.copy(alpha = fill))
-            drawPath(teal, mint.copy(alpha = fill))
-            withTransform({
-                translate(0f, 88f * (1f - reveal))
-                rotate(-13f * reveal, Offset(520f, 545f))
-                scale(0.78f + reveal * 0.22f, 0.66f + reveal * 0.34f, Offset(520f, 545f))
-            }) {
-                val phone = Offset(350f, 280f)
-                val frame = Size(345f, 525f)
-                drawRoundRect(Color(0xFFBBDFFF).copy(alpha = fill), phone + Offset(12f, 16f), frame, CornerRadius(63f))
-                drawRoundRect(Color.White.copy(alpha = fill), phone, frame, CornerRadius(63f))
-                drawRoundRect(Color(0xFFDBEEFF), phone, frame, CornerRadius(63f), style = Stroke(12f))
-                drawRoundRect(Color(0xFF125DF5).copy(alpha = fill), Offset(383f, 315f), Size(279f, 445f), CornerRadius(43f))
-                val play = Path().apply {
-                    moveTo(486f, 480f)
-                    lineTo(486f, 596f)
-                    lineTo(585f, 538f)
-                    close()
-                }
-                drawPath(play, Color.White.copy(alpha = fill))
+    val breathe by animation.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "缩放"
+    )
+    Image(
+        painter = painterResource(yunyun.xiangxiang.handlink.R.drawable.ic_app_logo),
+        contentDescription = null,
+        modifier = Modifier
+            .size(120.dp)
+            .graphicsLayer {
+                this.alpha = alpha
+                scaleX = breathe
+                scaleY = breathe
             }
-        }
-    }
+    )
 }
 
 @Composable

@@ -83,6 +83,29 @@ private val Dark = darkColorScheme(
     error = Color(0xFFFF7B7B),
 )
 
+/** 站酷快乐体：圆润可爱，内置在 APK 里，不依赖系统字体 */
+private val CuteFont = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(yunyun.xiangxiang.handlink.R.font.zcool_kuaile)
+)
+
+private fun AppTypographyWithCuteFont(): Typography = AppTypography.copy(
+    displayLarge = AppTypography.displayLarge.copy(fontFamily = CuteFont),
+    displayMedium = AppTypography.displayMedium.copy(fontFamily = CuteFont),
+    displaySmall = AppTypography.displaySmall.copy(fontFamily = CuteFont),
+    headlineLarge = AppTypography.headlineLarge.copy(fontFamily = CuteFont),
+    headlineMedium = AppTypography.headlineMedium.copy(fontFamily = CuteFont),
+    headlineSmall = AppTypography.headlineSmall.copy(fontFamily = CuteFont),
+    titleLarge = AppTypography.titleLarge.copy(fontFamily = CuteFont),
+    titleMedium = AppTypography.titleMedium.copy(fontFamily = CuteFont),
+    titleSmall = AppTypography.titleSmall.copy(fontFamily = CuteFont),
+    bodyLarge = AppTypography.bodyLarge.copy(fontFamily = CuteFont),
+    bodyMedium = AppTypography.bodyMedium.copy(fontFamily = CuteFont),
+    bodySmall = AppTypography.bodySmall.copy(fontFamily = CuteFont),
+    labelLarge = AppTypography.labelLarge.copy(fontFamily = CuteFont),
+    labelMedium = AppTypography.labelMedium.copy(fontFamily = CuteFont),
+    labelSmall = AppTypography.labelSmall.copy(fontFamily = CuteFont),
+)
+
 private val AppTypography = Typography(
     headlineSmall = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
     titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
@@ -130,6 +153,7 @@ private fun schemeFromSeed(seed: Color): androidx.compose.material3.ColorScheme 
 fun HandLinkTheme(
     mode: ThemeMode = ThemeMode.LIGHT,
     themeColor: Long = 0xFFFF98BE,
+    fontStyle: String = "kuaile",
     dynamic: Boolean = false,
     content: @Composable () -> Unit,
 ) {
@@ -152,5 +176,9 @@ fun HandLinkTheme(
             }
         }
     }
-    MaterialTheme(colorScheme = scheme, typography = AppTypography, shapes = AppShapes, content = content)
+    val typography = when (fontStyle) {
+        "system" -> AppTypography
+        else -> AppTypographyWithCuteFont()
+    }
+    MaterialTheme(colorScheme = scheme, typography = typography, shapes = AppShapes, content = content)
 }

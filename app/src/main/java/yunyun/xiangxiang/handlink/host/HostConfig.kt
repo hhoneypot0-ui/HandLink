@@ -39,6 +39,29 @@ object HostConfig {
         return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
     }
 
+    /**
+     * 规范化信令地址：补齐协议和端口。
+     * 只填 IP 时必须补成 wss://ip:8443，否则 agent 会当成 ws://ip（80 端口）连不上。
+     */
+    fun normalizeSignalingUrl(url: String): String {
+        val raw = url.trim()
+        if (raw.isEmpty()) return raw
+        yunyun.xiangxiang.handlink.core.net.ServerEndpoint.parse(raw)?.let { return it.wsBase }
+        val withScheme = when {
+            raw.startsWith("wss://") || raw.startsWith("ws://") -> raw
+            raw.startsWith("https://") -> raw.replaceFirst("https://", "wss://")
+            raw.startsWith("http://") -> raw.replaceFirst("http://", "ws://")
+            else -> "wss://$raw"
+        }
+        val scheme = withScheme.substringBefore("://")
+        val body = withScheme.substringAfter("://").substringBefore("/")
+        val path = withScheme.substringAfter("://").let { if (it.contains("/")) "/" + it.substringAfter("/") else "" }
+        val host = body.substringBefore(":")
+        val hasPort = body.contains(":")
+        val port = if (hasPort) body.substringAfter(":") else yunyun.xiangxiang.handlink.core.net.ServerEndpoint.DEFAULT_PORT.toString()
+        return "$scheme://$host:$port$path"
+    }
+
     @Synchronized
     fun load(context: Context): HostPreferences {
         val sp = getPrefs(context)

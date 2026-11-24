@@ -123,11 +123,9 @@ fun StreamScreen(
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))) {
             if (landscape) Row(Modifier.fillMaxSize()) {
                 body(Modifier.weight(1f).fillMaxHeight())
-                if (showNav) NavKeys(vm, vertical = true)
             } else Column(Modifier.fillMaxSize()) {
                 body(Modifier.weight(1f).fillMaxWidth())
                 if (t.isCamera) CameraBar(vm, Device(t.deviceId, effectiveDeviceInfo, true, "", null, 0, emptyList(), null, null), onScreenshot, onExit)
-                if (showNav) NavKeys(vm, vertical = false)
             }
             if (landscape && t.isCamera) Box(Modifier.align(Alignment.BottomCenter)) {
                 CameraBar(vm, Device(t.deviceId, effectiveDeviceInfo, true, "", null, 0, emptyList(), null, null), onScreenshot, onExit)
@@ -139,6 +137,9 @@ fun StreamScreen(
                 if (phase == ConnectionPhase.Interrupted) Banner("网络波动，正在恢复…", AppColors.Warning)
             }
             if (app.showStats && connected) StatsHud(stats, Modifier.align(Alignment.TopStart).padding(8.dp))
+
+            // 虚拟导航键：浮动、长按可拖动
+            if (showNav && !vm.fullscreen) NavKeys(vm)
 
             if (vm.panel == Panel.TERMINAL && termView != null) {
                 // 固定高度 + 外层 imePadding：键盘弹出时面板整体上移而不是被压缩

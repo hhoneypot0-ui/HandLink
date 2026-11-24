@@ -34,6 +34,10 @@ data class StreamSettings(
     val minBitrateMbps: Int = 1,
     val maxBitrateMbps: Int = 20,
     val audio: Boolean = true,
+    /** 声音来源：output=系统声音（对方能听到 App 声音，但本机会静音）；mic=麦克风 */
+    val audioSource: String = "output",
+    /** 截取系统声音时，本机也同时播放（Android 13+ 多数有效，老系统常无效） */
+    val audioDup: Boolean = true,
     val powerOff: Boolean = false,
 ) {
     fun withPreset(p: QualityPreset): StreamSettings =
@@ -55,6 +59,11 @@ data class AppSettings(
     val autoReconnect: Boolean = true,
     /** 投屏时锁定方向：auto 跟随画面 */
     val orientationLock: String = "auto",
+    /** 字体：kuaile = 站酷快乐体（可爱圆润），system = 系统默认 */
+    val fontStyle: String = "kuaile",
+    /** 虚拟按键条位置（屏幕比例 0~1），-1 表示用默认位置 */
+    val navBarX: Float = -1f,
+    val navBarY: Float = -1f,
 )
 
 class SettingsRepository(context: Context) {
@@ -79,6 +88,8 @@ class SettingsRepository(context: Context) {
             .putInt("s_min_bitrate", v.minBitrateMbps)
             .putInt("s_max_bitrate", v.maxBitrateMbps)
             .putBoolean("s_audio", v.audio)
+            .putString("s_audio_src", v.audioSource)
+            .putBoolean("s_audio_dup", v.audioDup)
             .putBoolean("s_power_off", v.powerOff)
             .apply()
         _stream.value = v
@@ -98,6 +109,9 @@ class SettingsRepository(context: Context) {
             .putBoolean("a_stats", v.showStats)
             .putBoolean("a_reconnect", v.autoReconnect)
             .putString("a_orientation", v.orientationLock)
+            .putString("a_font", v.fontStyle)
+            .putFloat("a_nav_x", v.navBarX)
+            .putFloat("a_nav_y", v.navBarY)
             .apply()
         _app.value = v
     }
@@ -128,6 +142,8 @@ class SettingsRepository(context: Context) {
             minBitrateMbps = prefs.getInt("s_min_bitrate", d.minBitrateMbps),
             maxBitrateMbps = prefs.getInt("s_max_bitrate", d.maxBitrateMbps),
             audio = prefs.getBoolean("s_audio", d.audio),
+            audioSource = prefs.getString("s_audio_src", d.audioSource) ?: d.audioSource,
+            audioDup = prefs.getBoolean("s_audio_dup", d.audioDup),
             powerOff = prefs.getBoolean("s_power_off", d.powerOff),
         )
     }
@@ -147,6 +163,9 @@ class SettingsRepository(context: Context) {
             showStats = prefs.getBoolean("a_stats", d.showStats),
             autoReconnect = prefs.getBoolean("a_reconnect", d.autoReconnect),
             orientationLock = prefs.getString("a_orientation", d.orientationLock) ?: d.orientationLock,
+            fontStyle = prefs.getString("a_font", d.fontStyle) ?: d.fontStyle,
+            navBarX = prefs.getFloat("a_nav_x", d.navBarX),
+            navBarY = prefs.getFloat("a_nav_y", d.navBarY),
         )
     }
 }

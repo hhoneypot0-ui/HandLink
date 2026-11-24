@@ -60,32 +60,221 @@ import yunyun.xiangxiang.handlink.rtc.channel.Keys
 import yunyun.xiangxiang.handlink.ui.home.CameraResolutions
 import yunyun.xiangxiang.handlink.ui.home.lensOptions
 import kotlin.math.roundToInt
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.foundation.gestures.detectTapGestures
 
-/** 虚拟导航键：返回 / 主页 / 多任务（长按主页 = 语音助手，长按返回 = 菜单） */
+/**
+ * 虚拟导航键：返回 / 主页 / 多任务。
+ * 以浮动条的形态悬浮在画面上，**长按后可以拖着换位置**（类似系统悬浮按钮），
+ * 位置记在设置里，下次进来还在原处。
+ */
 @Composable
-fun NavKeys(vm: StreamViewModel, vertical: Boolean) {
+fun NavKeys(vm: StreamViewModel) {
+    val app by vm.settings.app.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
+    var collapsed by rememberSaveable { mutableStateOf(false) }
     val items = listOf(
         Triple(Icons.AutoMirrored.Filled.ArrowBack, "返回", Keys.BACK),
         Triple(Icons.Filled.Circle, "主页", Keys.HOME),
         Triple(Icons.Filled.Menu, "多任务", Keys.APP_SWITCH),
     )
-    val content: @Composable (Modifier) -> Unit = { m ->
-        items.forEach { (icon, label, key) ->
-            Box(
-                m.combinedClickable(
-                    onClick = { vm.press(key) },
-                    onLongClick = { vm.longPress(if (key == Keys.BACK) Keys.MENU else key) },
-                ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, label, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(if (key == Keys.HOME) 18.dp else 22.dp))
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val barW = with(density) { (if (collapsed) 44 else 172).dp.toPx() }
+        val barH = with(density) { 44.dp.toPx() }
+        val maxX = (constraints.maxWidth - barW).coerceAtLeast(0f)
+        val maxY = (constraints.maxHeight - barH).coerceAtLeast(0f)
+
+        var x by remember(app.navBarX) {
+            mutableStateOf(
+                if (app.navBarX < 0f) maxX * 0.5f
+                else (app.navBarX * constraints.maxWidth).coerceIn(0f, maxX)
+            )
+        }
+        var y by remember(app.navBarY) {
+            mutableStateOf(
+                if (app.navBarY < 0f) maxY - with(density) { 12.dp.toPx() }
+                else (app.navBarY * constraints.maxHeight).coerceIn(0f, maxY)
+            )
+        }
+        var dragging by remember { mutableStateOf(false) }
+        var moved by remember { mutableStateOf(0f) }
+
+        fun persist() {
+            vm.settings.updateApp {
+                it.copy(
+                    navBarX = (x / constraints.maxWidth).coerceIn(0f, 1f),
+                    navBarY = (y / constraints.maxHeight).coerceIn(0f, 1f),
+                )
+            }
+        }
+
+        Box(
+            Modifier
+                .offset { IntOffset(x.roundToInt(), y.roundToInt()) }
+                .width(if (collapsed) 44.dp else 172.dp)
+                .height(44.dp)
+                .shadow(if (dragging) 12.dp else 6.dp, RoundedCornerShape(if (collapsed) 22.dp else 26.dp))
+                .background(
+                    if (collapsed) Color(0x70FFFFFF) else if (dragging) Color(0xE62A3242) else Color(0xB3202733),
+                    RoundedCornerShape(if (collapsed) 22.dp else 26.dp)
+                )
+                .then(
+                    if (collapsed) Modifier.border(1.2.dp, Color(0xAAFFFFFF), RoundedCornerShape(22.dp))
+                    else if (dragging) Modifier.border(1.dp, Color(0x66FFFFFF), RoundedCornerShape(26.dp))
+                    else Modifier
+                )
+                // 收起态：和悬浮球一样「按住就能拖」，不用先长按
+                .pointerInput(collapsed) {
+                    if (collapsed) {
+                        detectDragGestures(
+                            onDragStart = {
+                                dragging = true
+                                moved = 0f
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            },
+                            onDragCancel = {
+                                dragging = false
+                                if (moved < 12f) collapsed = false
+                            },
+                            onDragEnd = {
+                                dragging = false
+                                if (moved < 12f) {
+                                    // 基本没动 = 想展开
+                                    collapsed = false
+                                } else {
+                                    x = if (x + barW / 2f < constraints.maxWidth / 2f) 0f else maxX
+                                    persist()
+                                }
+                            },
+                        ) { change, amount ->
+                            change.consume()
+                            moved += kotlin.math.abs(amount.x) + kotlin.math.abs(amount.y)
+                            x = (x + amount.x).coerceIn(0f, maxX)
+                            y = (y + amount.y).coerceIn(0f, maxY)
+                        }
+                    } else {
+                        // 展开态有按键，长按才拖，避免误触
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                dragging = true
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            },
+                            onDragCancel = {
+                                dragging = false
+                                x = if (x + barW / 2f < constraints.maxWidth / 2f) 0f else maxX
+                                persist()
+                            },
+                            onDragEnd = {
+                                dragging = false
+                                x = if (x + barW / 2f < constraints.maxWidth / 2f) 0f else maxX
+                                persist()
+                            },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                x = (x + amount.x).coerceIn(0f, maxX)
+                                y = (y + amount.y).coerceIn(0f, maxY)
+                            }
+                        )
+                    }
+                }
+                // 收起状态下点一下展开（单独一个 pointerInput，不影响拖动）
+                .pointerInput(collapsed) {
+                    if (collapsed) {
+                        detectTapGestures(onTap = { collapsed = false })
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            if (collapsed) {
+                DogBall(Modifier.size(30.dp))
+            } else {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                    items.forEach { (icon, label, key) ->
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .combinedClickable(
+                                    onClick = { vm.press(key) },
+                                    onLongClick = { vm.longPress(if (key == Keys.BACK) Keys.MENU else key) },
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                icon, label,
+                                tint = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.size(if (key == Keys.HOME) 18.dp else 22.dp)
+                            )
+                        }
+                    }
+                    Box(
+                        Modifier.width(30.dp).fillMaxHeight().clickable { collapsed = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.KeyboardArrowDown, "收起",
+                            tint = Color.White.copy(alpha = 0.55f),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
             }
         }
     }
-    if (vertical) Column(Modifier.fillMaxHeight().width(48.dp).background(Color.Black), verticalArrangement = Arrangement.SpaceEvenly) {
-        content(Modifier.fillMaxWidth().weight(1f))
-    } else Row(Modifier.fillMaxWidth().height(44.dp).background(Color.Black), horizontalArrangement = Arrangement.SpaceEvenly) {
-        content(Modifier.fillMaxHeight().weight(1f))
+}
+
+/** 导航条收起后的小狗：半透明球 + 手绘小狗，纯 Canvas，无图片资源 */
+@Composable
+private fun DogBall(modifier: Modifier = Modifier) {
+    val ear = MaterialTheme.colorScheme.primary
+    val fur = Color(0xFFFFF8F0)
+    val eye = Color(0xFF3E302C)
+    val blush = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+
+    androidx.compose.foundation.Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        fun px(x: Float) = x * w
+        fun py(y: Float) = y * h
+
+        // 垂耳
+        drawOval(ear, topLeft = androidx.compose.ui.geometry.Offset(px(0.00f), py(0.26f)),
+            size = androidx.compose.ui.geometry.Size(px(0.30f), py(0.60f)))
+        drawOval(ear, topLeft = androidx.compose.ui.geometry.Offset(px(0.70f), py(0.26f)),
+            size = androidx.compose.ui.geometry.Size(px(0.30f), py(0.60f)))
+        // 头
+        drawOval(fur, topLeft = androidx.compose.ui.geometry.Offset(px(0.12f), py(0.16f)),
+            size = androidx.compose.ui.geometry.Size(px(0.76f), py(0.76f)))
+        // 眼睛
+        listOf(0.35f, 0.65f).forEach { cx ->
+            drawCircle(eye, radius = w * 0.058f, center = androidx.compose.ui.geometry.Offset(px(cx), py(0.50f)))
+            drawCircle(Color.White.copy(alpha = 0.9f), radius = w * 0.018f,
+                center = androidx.compose.ui.geometry.Offset(px(cx) - w * 0.020f, py(0.48f)))
+        }
+        // 鼻子
+        drawCircle(Color(0xFF46342E), radius = w * 0.062f, center = androidx.compose.ui.geometry.Offset(px(0.50f), py(0.63f)))
+        // 嘴
+        val sw = w * 0.022f
+        drawArc(Color(0xFF78605A), startAngle = 0f, sweepAngle = 110f, useCenter = false,
+            topLeft = androidx.compose.ui.geometry.Offset(px(0.42f), py(0.66f)),
+            size = androidx.compose.ui.geometry.Size(px(0.08f), py(0.12f)),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw))
+        drawArc(Color(0xFF78605A), startAngle = 70f, sweepAngle = 110f, useCenter = false,
+            topLeft = androidx.compose.ui.geometry.Offset(px(0.50f), py(0.66f)),
+            size = androidx.compose.ui.geometry.Size(px(0.08f), py(0.12f)),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw))
+        // 腮红
+        drawCircle(blush, radius = w * 0.07f, center = androidx.compose.ui.geometry.Offset(px(0.24f), py(0.66f)))
+        drawCircle(blush, radius = w * 0.07f, center = androidx.compose.ui.geometry.Offset(px(0.76f), py(0.66f)))
     }
 }
 
@@ -122,7 +311,8 @@ fun FloatingBall(onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
                 .offset { IntOffset(x.coerceIn(0f, maxX).roundToInt(), y.coerceIn(0f, maxY).roundToInt()) }
                 .size(48.dp)
                 .shadow(6.dp, CircleShape)
-                .background(Color(0xCC1F2633), CircleShape)
+                .background(Color(0x70FFFFFF), CircleShape)
+                .border(1.2.dp, Color(0xAAFFFFFF), CircleShape)
                 .pointerInputDrag(
                     onDrag = { dx, dy -> x = (x + dx).coerceIn(0f, maxX); y = (y + dy).coerceIn(0f, maxY) },
                     onEnd = { x = if (x + ballPx / 2 < constraints.maxWidth / 2f) 0f else maxX },
@@ -133,8 +323,81 @@ fun FloatingBall(onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.Apps, "工具", tint = Color.White)
+            CatBall(Modifier.size(32.dp))
         }
+    }
+}
+
+/**
+ * 悬浮球里的小猫：纯 Canvas 手绘，半透明球体，颜色跟随主题。
+ * 点击开工具面板，长按开切换设备，拖动可换位置。
+ */
+@Composable
+private fun CatBall(modifier: Modifier = Modifier) {
+    val fur = Color(0xFFFFF4EB)
+    val earInner = MaterialTheme.colorScheme.primary
+    val eye = Color(0xFF46343C)
+    val blush = MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)
+    val nose = MaterialTheme.colorScheme.primary
+    val mouth = Color(0xFF6E5862)
+
+    androidx.compose.foundation.Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        fun px(x: Float) = x * w
+        fun py(y: Float) = y * h
+
+        // 耳朵
+        val earL = androidx.compose.ui.graphics.Path().apply {
+            moveTo(px(0.10f), py(0.36f)); lineTo(px(0.20f), py(0.02f)); lineTo(px(0.46f), py(0.24f)); close()
+        }
+        val earR = androidx.compose.ui.graphics.Path().apply {
+            moveTo(px(0.90f), py(0.36f)); lineTo(px(0.80f), py(0.02f)); lineTo(px(0.54f), py(0.24f)); close()
+        }
+        drawPath(earL, fur); drawPath(earR, fur)
+        val inL = androidx.compose.ui.graphics.Path().apply {
+            moveTo(px(0.17f), py(0.31f)); lineTo(px(0.24f), py(0.11f)); lineTo(px(0.38f), py(0.26f)); close()
+        }
+        val inR = androidx.compose.ui.graphics.Path().apply {
+            moveTo(px(0.83f), py(0.31f)); lineTo(px(0.76f), py(0.11f)); lineTo(px(0.62f), py(0.26f)); close()
+        }
+        drawPath(inL, earInner); drawPath(inR, earInner)
+
+        // 头
+        drawOval(fur, topLeft = androidx.compose.ui.geometry.Offset(px(0.05f), py(0.18f)),
+            size = androidx.compose.ui.geometry.Size(px(0.90f), py(0.77f)))
+
+        // 腮红
+        drawCircle(blush, radius = w * 0.085f, center = androidx.compose.ui.geometry.Offset(px(0.22f), py(0.68f)))
+        drawCircle(blush, radius = w * 0.085f, center = androidx.compose.ui.geometry.Offset(px(0.78f), py(0.68f)))
+
+        // 眼睛
+        listOf(0.34f, 0.66f).forEach { cx ->
+            drawCircle(eye, radius = w * 0.062f, center = androidx.compose.ui.geometry.Offset(px(cx), py(0.53f)))
+            drawCircle(Color.White.copy(alpha = 0.9f), radius = w * 0.020f,
+                center = androidx.compose.ui.geometry.Offset(px(cx) - w * 0.018f, py(0.51f)))
+        }
+
+        // 鼻子
+        val nosePath = androidx.compose.ui.graphics.Path().apply {
+            moveTo(px(0.46f), py(0.66f)); lineTo(px(0.54f), py(0.66f)); lineTo(px(0.50f), py(0.71f)); close()
+        }
+        drawPath(nosePath, nose)
+
+        // 嘴（两段小弧）
+        val strokeW = w * 0.022f
+        drawArc(
+            color = mouth, startAngle = 0f, sweepAngle = 110f, useCenter = false,
+            topLeft = androidx.compose.ui.geometry.Offset(px(0.42f), py(0.67f)),
+            size = androidx.compose.ui.geometry.Size(px(0.08f), py(0.11f)),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW),
+        )
+        drawArc(
+            color = mouth, startAngle = 70f, sweepAngle = 110f, useCenter = false,
+            topLeft = androidx.compose.ui.geometry.Offset(px(0.50f), py(0.67f)),
+            size = androidx.compose.ui.geometry.Size(px(0.08f), py(0.11f)),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW),
+        )
     }
 }
 

@@ -81,10 +81,22 @@ fun DeviceActionSheet(
     onLease: () -> Unit = {},
     onDelete: () -> Unit,
 ) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // 摄像头监控需要相机与录音权限；没授予时先弹系统授权
+    val camPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        if (granted.values.all { it }) {
+            onDismiss()
+            onCamera()
+        } else {
+            android.widget.Toast.makeText(ctx, "需要相机权限才能用摄像头监控", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     var info by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
-    var aliasInput by remember(device.alias) { mutableStateOf(device.alias) }
+    var aliasInput by remember(device.alias) { mutableStateOf(if (device.alias == device.id) "" else device.alias) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
             Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -103,17 +115,32 @@ fun DeviceActionSheet(
             SettingRow(if (device.info.projectionOnDemand) "请求投屏" else "进入投屏", icon = Icons.Outlined.CastConnected, enabled = device.online, onClick = { onDismiss(); onOpen() })
             if (!device.info.projectionOnDemand) {
                 SettingRow(
-                    "WS 模式投屏", "WebSocket 中转，免 P2P 穿透（视频+直控）",
+                    "换一种连接方式", "直连失败或画面出不来时用这个，能看也能点",
                     icon = Icons.Outlined.Bolt, enabled = device.online,
                     onClick = { onDismiss(); onOpenWs() }
                 )
+                // 摄像头串流需要 Android 12+，老系统上直接禁用并说明原因
+                val androidVer = device.info.androidVersion.toIntOrNull() ?: 0
+                val cameraOk = androidVer >= 12
                 SettingRow(
-                    "摄像头监控", "使用云手机摄像头作为画面，含环境音",
-                    icon = Icons.Outlined.Videocam, enabled = device.online,
-                    onClick = { onDismiss(); onCamera() }
+                    "摄像头监控",
+                    if (cameraOk) "用对方手机的摄像头当画面，带环境音"
+                    else "对方是 Android ${device.info.androidVersion.ifBlank { "旧版本" }}，系统太旧不支持",
+                    icon = Icons.Outlined.Videocam, enabled = device.online && cameraOk,
+                    onClick = {
+                        val perms = arrayOf(
+                            android.Manifest.permission.CAMERA,
+                            android.Manifest.permission.RECORD_AUDIO,
+                        )
+                        val missing = perms.filter {
+                            androidx.core.content.ContextCompat.checkSelfPermission(ctx, it) !=
+                                android.content.pm.PackageManager.PERMISSION_GRANTED
+                        }
+                        if (missing.isEmpty()) { onDismiss(); onCamera() }
+                        else camPermissionLauncher.launch(missing.toTypedArray())
+                    }
                 )
             }
-            if (canShare) SettingRow("分享 / 生成卡密", icon = Icons.Outlined.Share, onClick = { onDismiss(); onShare() })
             if (onSetAlias != null) {
                 SettingRow(
                     "重命名",
@@ -129,8 +156,6 @@ fun DeviceActionSheet(
                 } else {
                     "当前未出租，点击为用户开租"
                 }
-                SettingRow("设备开租 / 租约管理", leaseSub, icon = Icons.Outlined.Key, onClick = { onDismiss(); onLease() })
-                SettingRow("设置标签", icon = Icons.Outlined.Label, onClick = { onDismiss(); onTags() })
             }
             SettingRow("设备信息", icon = Icons.Outlined.Info, onClick = { info = !info })
             if (info) DeviceInfoBlock(device)
@@ -146,13 +171,16 @@ fun DeviceActionSheet(
             title = { Text("重命名设备") },
             text = {
                 Column {
-                    Text("请输入新的设备名称，留空则恢复默认显示 ID：", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "给这台手机起个你认得出的名字，比如「对象的手机」。留空就恢复默认名字。",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = aliasInput,
                         onValueChange = { aliasInput = it },
                         singleLine = true,
-                        placeholder = { Text(device.id) },
+                        placeholder = { Text(device.displayName) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -160,7 +188,8 @@ fun DeviceActionSheet(
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     showRename = false
-                    onSetAlias?.invoke(aliasInput.trim())
+                    val v = aliasInput.trim().let { if (it == device.id) "" else it }
+                    onSetAlias?.invoke(v)
                     onDismiss()
                 }) { Text("确定") }
             },

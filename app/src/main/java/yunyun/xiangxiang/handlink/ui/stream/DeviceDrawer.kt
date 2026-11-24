@@ -71,8 +71,14 @@ fun DeviceDrawer(vm: StreamViewModel) {
     var query by remember { mutableStateOf("") }
     val current = vm.target.deviceId
 
+    // 本机自己的设备不显示：连着它只会看到「自己看自己」的黑屏
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val localDeviceId = remember(ctx) {
+        runCatching { yunyun.xiangxiang.handlink.host.HostConfig.load(ctx).deviceId }.getOrDefault("")
+    }
     val q = query.trim().lowercase()
     val shown = devices
+        .filter { it.id != localDeviceId }
         .filter { q.isEmpty() || it.id.lowercase().contains(q) || it.info.title.lowercase().contains(q) }
         .sortedWith(
             compareByDescending<Device> { it.id == current }
@@ -89,7 +95,7 @@ fun DeviceDrawer(vm: StreamViewModel) {
             Column(Modifier.weight(1f)) {
                 Text("切换设备", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "在线 ${devices.count { it.online }} / 共 ${devices.size}",
+                    "在线 ${shown.count { it.online }} / 共 ${shown.size}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

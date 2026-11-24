@@ -83,8 +83,16 @@ fun parseTagColor(hex: String, fallback: Color = AppColors.Brand): Color = runCa
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DevicesTab(vm: HomeViewModel, onOpen: (Device) -> Unit, onMore: (Device) -> Unit) {
-    val list by vm.filtered.collectAsStateWithLifecycle()
-    val all by vm.devices.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // 本机自己的 deviceId：列表里不显示自己，否则点开会把自己看自己（黑屏/花屏）
+    val localDeviceId = androidx.compose.runtime.remember(context) {
+        runCatching { yunyun.xiangxiang.handlink.host.HostConfig.load(context).deviceId }.getOrDefault("")
+    }
+    val rawList by vm.filtered.collectAsStateWithLifecycle()
+    val rawAll by vm.devices.collectAsStateWithLifecycle()
+    val hiddenSelf = rawAll.any { it.id == localDeviceId }
+    val list = rawList.filter { it.id != localDeviceId }
+    val all = rawAll.filter { it.id != localDeviceId }
     val snapshots by vm.snapshots.collectAsStateWithLifecycle()
     val tags by vm.tags.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
@@ -111,7 +119,7 @@ fun DevicesTab(vm: HomeViewModel, onOpen: (Device) -> Unit, onMore: (Device) -> 
                     action = { Button(onClick = { vm.refresh() }) { Text("重试") } }
                 )
                 list.isEmpty() && !loading -> if (all.isEmpty()) {
-                    NoDeviceGuide()
+                    NoDeviceGuide(hiddenSelf)
                 } else {
                     EmptyState(
                         Icons.Outlined.PhoneAndroid,
@@ -237,12 +245,11 @@ fun DeviceCard(
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(ratio).clip(MaterialTheme.shapes.medium).background(Color(0xFF111318))) {
             if (device.info.projectionOnDemand) {
-                Text(
-                    "在线协助\n未开启无人值守时需在手机上确认",
-                    modifier = Modifier.align(Alignment.Center).padding(8.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.8f)
+                // 按需投屏：不写字，只放一个淡淡的小图标，避免一堆说明挡住卡片
+                Icon(
+                    Icons.Outlined.PhoneAndroid, null,
+                    tint = Color.White.copy(alpha = 0.25f),
+                    modifier = Modifier.align(Alignment.Center).size(36.dp),
                 )
             } else if (snapshot != null) {
                 Image(
@@ -308,7 +315,8 @@ fun DeviceCard(
                 )
                 if (!compact) {
                     val subText = listOfNotNull(
-                        device.info.title.takeIf { it.isNotBlank() },
+                        // 名字已经是「OPPO PFGM00」时不再重复一遍
+                        device.info.title.takeIf { it.isNotBlank() && it.trim() != device.displayName },
                         device.info.androidVersion.takeIf { it.isNotBlank() }?.let { "Android $it" }
                     ).joinToString(" · ")
                     if (subText.isNotBlank()) {
@@ -333,7 +341,7 @@ fun DeviceCard(
 
 /** 一台设备都没有时的引导：用两个角色卡片，一眼看懂谁做什么 */
 @Composable
-private fun NoDeviceGuide() {
+private fun NoDeviceGuide(hiddenSelf: Boolean = false) {
     Column(
         Modifier
             .fillMaxSize()
@@ -353,10 +361,13 @@ private fun NoDeviceGuide() {
             )
         }
         Spacer(Modifier.height(14.dp))
-        Text("还没有连上手机", style = MaterialTheme.typography.titleMedium)
+        Text(
+            if (hiddenSelf) "还没连上对方的手机" else "还没有连上手机",
+            style = MaterialTheme.typography.titleMedium
+        )
         Spacer(Modifier.height(4.dp))
         Text(
-            "两台手机都要打开 App，同一个账号登录",
+            if (hiddenSelf) "你自己这台已经打开，对方还没打开" else "两台手机都要打开 App",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

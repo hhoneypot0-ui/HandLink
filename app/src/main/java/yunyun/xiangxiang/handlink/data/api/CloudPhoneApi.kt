@@ -22,6 +22,68 @@ class CloudPhoneApi(val client: ApiClient) {
 
     data class LoginResult(val token: String, val username: String, val role: String)
 
+    /**
+     * 自助注册：调用服务器上的注册服务（默认 9444 端口）。
+     * 成功返回后可直接用同一账号登录。
+     */
+    suspend fun register(username: String, password: String, registerPort: Int = REGISTER_PORT) {
+        val e = client.endpoint
+        val host = if (e.host.contains(':') && !e.host.startsWith("[")) "[${e.host}]" else e.host
+        val scheme = if (e.secure) "https" else "http"
+        val url = "$scheme://$host:$registerPort/api/register"
+        // 成功返回 200；失败（名额满/已存在/参数不合法）由 execute 抛出带中文提示的异常
+        client.postAbsolute(
+            url,
+            JSONObject().put("username", username).put("password", password)
+        )
+    }
+
+    companion object {
+        /** 注册服务端口（HTTPS 标准端口，与信令服务分开） */
+        const val REGISTER_PORT = 443
+    }
+
+    /**
+     * 声明「这个账号现在在这台手机上用」。
+     * 同账号后登录的会顶掉前一台，前一台自检时会被要求下线（不做永久绑定）。
+     */
+    suspend fun claimSession(username: String, token: String, deviceId: String, deviceName: String) {
+        val url = "$scheme://$hostForUrl:$REGISTER_PORT/api/session/claim"
+        client.postAbsolute(
+            url,
+            JSONObject()
+                .put("username", username)
+                .put("token", token)
+                .put("device_id", deviceId)
+                .put("device_name", deviceName)
+        )
+    }
+
+    /** 自检：这台手机还是不是该账号的当前会话 */
+    suspend fun isSessionActive(username: String, token: String): Boolean {
+        val qs = "?username=${java.net.URLEncoder.encode(username, "UTF-8")}&token=${java.net.URLEncoder.encode(token, "UTF-8")}"
+        val url = "$scheme://$hostForUrl:$REGISTER_PORT/api/session/check$qs"
+        val body = client.getAbsolute(url)
+        return runCatching { JSONObject(body).optBoolean("active", true) }.getOrDefault(true)
+    }
+
+    /** 主动下线 */
+    suspend fun releaseSession(username: String, token: String) {
+        runCatching {
+            val url = "$scheme://$hostForUrl:$REGISTER_PORT/api/session/release"
+            client.postAbsolute(
+                url,
+                JSONObject().put("username", username).put("token", token)
+            )
+        }
+    }
+
+    private val scheme get() = if (client.endpoint.secure) "https" else "http"
+    private val hostForUrl get(): String {
+        val h = client.endpoint.host
+        return if (h.contains(':') && !h.startsWith("[")) "[$h]" else h
+    }
+
     suspend fun login(username: String, password: String): LoginResult {
         val body = client.post(
             "/api/login",

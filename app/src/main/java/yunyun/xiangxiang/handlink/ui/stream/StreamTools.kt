@@ -25,8 +25,11 @@ import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.VolumeDown
 import androidx.compose.material.icons.outlined.VolumeUp
 import yunyun.xiangxiang.handlink.rtc.channel.Keys
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 
 /** 工具面板内容；按会话权限动态禁用 */
+@androidx.compose.runtime.Composable
 fun toolSections(
     vm: StreamViewModel,
     connected: Boolean,
@@ -34,6 +37,8 @@ fun toolSections(
     onScreenshot: () -> Unit,
     onExit: () -> Unit,
 ): List<Pair<String, List<ToolItem>>> {
+    val app by vm.settings.app.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val t = vm.target
     val control = connected && !t.viewOnly
     val ws = t.isWs
@@ -56,7 +61,7 @@ fun toolSections(
             },
             ToolItem("音量+", Icons.Outlined.VolumeUp, control && !projection) { vm.press(Keys.VOLUME_UP) },
             ToolItem("音量-", Icons.Outlined.VolumeDown, control && !projection) { vm.press(Keys.VOLUME_DOWN) },
-            ToolItem("通知栏", Icons.Outlined.Notifications, control && !projection) { vm.press(Keys.NOTIFICATION) },
+            ToolItem("通知栏", Icons.Outlined.Notifications, control && !projection) { vm.openNotificationShade() },
             // WS 模式无法截图（无 GL 渲染器）
             ToolItem("截图", Icons.Outlined.Screenshot, connected && !ws) { close(); onScreenshot() },
         ),
@@ -90,8 +95,14 @@ fun toolSections(
             } else null,
             // WS 模式无音频
             ToolItem(if (vm.audioOn) "声音开" else "已静音", if (vm.audioOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff, !ws && !projection, active = !vm.audioOn) { vm.toggleAudio() },
-            ToolItem("性能", Icons.Outlined.Insights, true, active = vm.settings.app.value.showStats) {
-                vm.settings.updateApp { it.copy(showStats = !it.showStats) }
+            ToolItem("性能", Icons.Outlined.Insights, true, active = app.showStats) {
+                val next = !app.showStats
+                vm.settings.updateApp { it.copy(showStats = next) }
+                android.widget.Toast.makeText(
+                    context,
+                    if (next) "性能浮层已开启：左上角显示延迟 / 帧率 / 码率" else "性能浮层已关闭",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
             },
             ToolItem("连接信息", Icons.Outlined.Info, true) { vm.panel = Panel.INFO },
             ToolItem("全屏模式", Icons.Outlined.Fullscreen, true, active = vm.fullscreen) { close(); vm.fullscreen = !vm.fullscreen },

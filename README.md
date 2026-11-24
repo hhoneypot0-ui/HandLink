@@ -4,10 +4,10 @@
   <a href="https://hhoneypot0-ui.github.io/HandLink/">
     <img src="https://img.shields.io/badge/🌐_官网-在线预览-FF98BE?style=for-the-badge" alt="官网">
   </a>
-  <a href="https://github.com/hhoneypot0-ui/HandLink/releases/download/v2.0/HandLink-2.0-arm64.apk">
+  <a href="https://github.com/hhoneypot0-ui/HandLink/releases/download/v2.8/HandLink-2.8-arm64.apk">
     <img src="https://img.shields.io/badge/⬇_下载-64位版-F06292?style=for-the-badge" alt="下载 64 位">
   </a>
-  <a href="https://github.com/hhoneypot0-ui/HandLink/releases/download/v2.0/HandLink-2.0-arm32.apk">
+  <a href="https://github.com/hhoneypot0-ui/HandLink/releases/download/v2.8/HandLink-2.8-arm32.apk">
     <img src="https://img.shields.io/badge/⬇_下载-32位版(老机型)-E57399?style=for-the-badge" alt="下载 32 位">
   </a>
 </p>
@@ -147,6 +147,15 @@ docker run -d --name cp-aio --network host --restart unless-stopped \
 
 我们做的事是取舍和打磨 —— 砍掉用不上的功能，只留「看屏幕、直接操作、调画质」这几件，
 把界面和交互按我们自己的习惯重新做了一遍。
+
+## 致谢
+
+- UI 字体：[站酷快乐体](https://github.com/googlefonts/zcool-kuaile)（SIL Open Font License 1.1）
+- 受控端与信令服务：[ScrcpyOverWebRTC](https://github.com/hwq700/ScrcpyOverWebRTC)
+
+## 注册服务（可选）
+
+想开放注册、让别人自己建账号，见 [`deploy/register/`](deploy/register/README.md)。
 
 ## 许可
 

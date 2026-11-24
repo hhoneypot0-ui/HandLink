@@ -96,7 +96,7 @@ class StreamActivity : ComponentActivity() {
                     yunyun.xiangxiang.handlink.data.settings.AppSettings()
                 )
             }
-            HandLinkTheme(appSettings.themeMode, appSettings.themeColor) {
+            HandLinkTheme(appSettings.themeMode, appSettings.themeColor, appSettings.fontStyle) {
                 StreamScreen(vm, videoView, onScreenshot = ::screenshot, onExit = ::exit)
             }
         }
@@ -182,6 +182,17 @@ class StreamActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * 离开本页时把系统栏还回去。
+     * 之前一直隐着，切到抖音等别的 App 后返回手势的第一下只会「唤出系统栏」而不是返回，
+     * 看起来就像返回失效了。
+     */
+    private fun restoreSystemBars() {
+        runCatching {
+            WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     private fun onBack() {
         when {
             vm.drawerOpen -> vm.closeDrawer()
@@ -227,6 +238,7 @@ class StreamActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        restoreSystemBars()
         renderer?.let { vm.detach(it) }
         super.onStop()
     }

@@ -105,8 +105,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // -PnoMinify 可关闭混淆，用于排错
+            isMinifyEnabled = !providers.gradleProperty("noMinify").isPresent
+            isShrinkResources = !providers.gradleProperty("noMinify").isPresent
             if (signingConfigs.getByName("release").storeFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }

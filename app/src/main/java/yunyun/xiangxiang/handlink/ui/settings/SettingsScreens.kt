@@ -77,6 +77,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Language
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,6 +170,30 @@ fun StreamQualityEditor(
             "传输声音", s.audio, { b -> onChange { it.copy(audio = b) } },
             subtitle = "对方能听到你这边的声音", enabled = !lockAudio,
         )
+        if (s.audio && !lockAudio) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                Text(
+                    "声音来源",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(6.dp))
+                AudioSourceOption(
+                    "系统声音", "对方听到的是 App 里的声音（抖音、音乐）；但这台手机自己会静音",
+                    "output", s.audioSource,
+                ) { onChange { it.copy(audioSource = "output") } }
+                AudioSourceOption(
+                    "麦克风", "这台手机照常出声，对方听到的是环境音",
+                    "mic", s.audioSource,
+                ) { onChange { it.copy(audioSource = "mic") } }
+                Spacer(Modifier.height(6.dp))
+                SwitchRow(
+                    "共享时本机也出声",
+                    s.audioDup, { b -> onChange { it.copy(audioDup = b) } },
+                    subtitle = "Android 13 以上多数有效；老系统（如 11）常常无效",
+                )
+            }
+        }
     }
 
     SectionCard {
@@ -326,6 +351,17 @@ fun AppSettingsScreen(repo: SettingsRepository, onBack: () -> Unit) {
                         ColorPalette(a.themeColor) { c ->
                             repo.updateApp { it.copy(themeMode = ThemeMode.CUSTOM, themeColor = c) }
                         }
+                    }
+                }
+            }
+
+            SectionCard(title = "字体") {
+                Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    FontOption("可爱体", "圆圆的，字胖胖的", "kuaile", a.fontStyle) {
+                        repo.updateApp { it.copy(fontStyle = "kuaile") }
+                    }
+                    FontOption("系统默认", "手机本来那个字体", "system", a.fontStyle) {
+                        repo.updateApp { it.copy(fontStyle = "system") }
                     }
                 }
             }
@@ -530,10 +566,25 @@ fun AboutScreen(onBack: () -> Unit) {
                     modifier = Modifier.padding(16.dp)
                 )
             }
-            SectionCard(title = "开源") {
+            SectionCard(title = "关于我们") {
                 SettingRow(
-                    "GitHub 仓库",
-                    "hhoneypot0-ui/HandLink",
+                    title = "官方网站",
+                    subtitle = "hhoneypot0-ui.github.io/HandLink",
+                    icon = Icons.Outlined.Language,
+                    onClick = {
+                        runCatching {
+                            ctx.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://hhoneypot0-ui.github.io/HandLink/")
+                                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }
+                )
+                SettingRow(
+                    title = "GitHub 仓库",
+                    subtitle = "hhoneypot0-ui/HandLink",
                     painter = painterResource(R.drawable.ic_github),
                     onClick = {
                         runCatching {
@@ -591,5 +642,65 @@ private fun ColorPalette(current: Long, onPick: (Long) -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** 字体选项（和主题选项同款样式） */
+@Composable
+private fun FontOption(
+    title: String,
+    subtitle: String,
+    value: String,
+    current: String,
+    onClick: () -> Unit,
+) {
+    val selected = value == current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            )
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (selected) {
+            Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/** 声音来源单选 */
+@Composable
+private fun AudioSourceOption(
+    title: String,
+    subtitle: String,
+    value: String,
+    current: String,
+    onClick: () -> Unit,
+) {
+    val selected = value == current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (selected) Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
     }
 }

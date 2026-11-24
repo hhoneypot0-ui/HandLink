@@ -130,7 +130,7 @@ class AgentHostService : Service {
                         AgentController.startAgent(
                             applicationContext,
                             useShizuku,
-                            prefs.signalingUrl,
+                            HostConfig.normalizeSignalingUrl(prefs.signalingUrl),
                             prefs.deviceId,
                             prefs.iceServers
                         )

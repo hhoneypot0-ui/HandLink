@@ -41,6 +41,17 @@ class ApiClient(
         )
     }
 
+    /** 向任意完整 URL 发 GET（用于会话自检等旁路接口） */
+    suspend fun getAbsolute(url: String, auth: Boolean = false): String =
+        execute(Request.Builder().url(url).get(), auth)
+
+    /** 向任意完整 URL 发 POST（用于注册服务等旁路接口，复用同一套 TLS 信任） */
+    suspend fun postAbsolute(url: String, body: JSONObject, auth: Boolean = false): String =
+        execute(
+            Request.Builder().url(url).post(body.toString().toRequestBody(JSON)),
+            auth
+        )
+
     suspend fun delete(path: String): String =
         execute(Request.Builder().url(endpoint.url(path)).delete(), true)
 

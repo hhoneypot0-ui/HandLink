@@ -19,8 +19,15 @@ class QuickTextRepository(private val api: CloudPhoneApi) {
 
     suspend fun load(force: Boolean = false) {
         if (loaded && !force) return
-        _items.value = api.quickTexts()
+        // 服务器首次会给每个账号塞 3 条演示模板（测试欢迎语/测试账号/默认密码），
+        // 这些跟用户无关，直接过滤掉，界面上只显示用户自己建的。
+        _items.value = api.quickTexts().filterNot { it.id in DEMO_IDS }
         loaded = true
+    }
+
+    companion object {
+        /** 服务器自带的演示模板 ID，清空后又会被重新塞回来，所以在本地过滤 */
+        private val DEMO_IDS = setOf("qt_welcome", "qt_account", "qt_password")
     }
 
     suspend fun upsert(title: String, content: String, autoEnter: Boolean, id: String? = null) {

@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
                 if (added) window.addFlags(flag)
                 onDispose { if (added) window.clearFlags(flag) }
             }
-            HandLinkTheme(app.themeMode, app.themeColor) {
+            HandLinkTheme(app.themeMode, app.themeColor, app.fontStyle) {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     Root(c)
                     ProjectionRequestDialog()

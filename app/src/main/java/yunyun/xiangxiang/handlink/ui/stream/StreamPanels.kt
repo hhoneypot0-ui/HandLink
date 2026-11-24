@@ -90,8 +90,22 @@ fun ToolGrid(vm: StreamViewModel, sections: List<Pair<String, List<ToolItem>>>) 
             )
         }
         sections.forEach { (title, items) ->
-            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp))
-            FlowRow(Modifier.padding(horizontal = 8.dp), maxItemsInEachRow = 5) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                )
+                Spacer(Modifier.width(10.dp))
+                androidx.compose.material3.HorizontalDivider(
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                )
+            }
+            FlowRow(Modifier.padding(horizontal = 12.dp), maxItemsInEachRow = 5) {
                 items.forEach { t -> ToolButton(t, Modifier.weight(1f)) }
                 repeat((5 - items.size % 5) % 5) { Spacer(Modifier.weight(1f)) }
             }
@@ -107,10 +121,13 @@ private fun ToolButton(t: ToolItem, modifier: Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            Modifier.size(46.dp).background(
-                if (t.active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                RoundedCornerShape(14.dp)
-            ),
+            Modifier
+                .size(46.dp)
+                .background(
+                    if (t.active) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.09f),
+                    androidx.compose.foundation.shape.CircleShape
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(

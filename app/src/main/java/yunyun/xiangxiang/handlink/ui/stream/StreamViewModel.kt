@@ -271,6 +271,27 @@ class StreamViewModel(private val c: AppContainer, initial: StreamTarget) : View
         activeInput?.press(key)
     }
 
+    /**
+     * 下拉通知栏。
+     * 原来发的 KEYCODE_NOTIFICATION(83) 在 Android 5 之后已经没人处理，
+     * 所以点了没反应。改成模拟一次从顶部往下滑的手势，各版本都有效。
+     */
+    fun openNotificationShade() {
+        if (blockedByViewOnly()) return
+        val input = activeInput ?: return
+        val size = videoSize.value ?: target.displayHint ?: return
+        val w = size.first
+        val h = size.second
+        if (w <= 0 || h <= 0) return
+        val x = w / 2
+        input.touch(0, yunyun.xiangxiang.handlink.rtc.channel.TouchAction.DOWN, x, 2, w, h)
+        val steps = 14
+        for (i in 1..steps) {
+            input.touch(0, yunyun.xiangxiang.handlink.rtc.channel.TouchAction.MOVE, x, (h * 0.75f * i / steps).toInt(), w, h)
+        }
+        input.touch(0, yunyun.xiangxiang.handlink.rtc.channel.TouchAction.UP, x, (h * 0.75f).toInt(), w, h)
+    }
+
     fun longPress(key: Int) {
         if (blockedByViewOnly()) return
         activeInput?.longPress(key)

@@ -58,6 +58,7 @@ import yunyun.xiangxiang.handlink.core.net.ServerEndpoint
 import yunyun.xiangxiang.handlink.ui.common.CertificateTrustDialog
 import yunyun.xiangxiang.handlink.ui.common.PasswordField
 import yunyun.xiangxiang.handlink.ui.theme.AppColors
+import androidx.compose.material3.TextButton
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -158,6 +159,14 @@ fun LoginScreen(vm: LoginViewModel, onOpenHost: () -> Unit = {}) {
                 Icon(Icons.Outlined.PhoneAndroid, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("让对方看我的屏幕")
+            }
+
+            TextButton(
+                onClick = { vm.register() },
+                enabled = !s.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("没有账号？用上面填的账号密码注册", style = MaterialTheme.typography.bodyMedium)
             }
 
             Spacer(Modifier.height(16.dp))

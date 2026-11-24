@@ -98,6 +98,19 @@ class LoginViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 repo.login(ep, username, s.password)
+                // 声明这台手机占用该账号（后登录的顶掉前一台，不阻止登录）
+                runCatching {
+                    val ctx = c.appContext
+                    val sess = repo.session.value
+                    if (sess != null) {
+                        repo.anonymousApi(ep).claimSession(
+                            username,
+                            sess.token,
+                            yunyun.xiangxiang.handlink.host.HostConfig.load(ctx).deviceId,
+                            yunyun.xiangxiang.handlink.host.DeviceNames.marketingName(ctx),
+                        )
+                    }
+                }
                 if (s.rememberPassword) repo.savePassword(ep.serialize(), username, s.password)
                 else repo.clearPassword(ep.serialize(), username)
             } catch (e: ApiException.UntrustedCertificate) {
@@ -110,6 +123,51 @@ class LoginViewModel(private val c: AppContainer) : ViewModel() {
                 val msg = if (!ep.secure && e is ApiException.Network) "${e.message}（当前为 HTTP 明文连接）" else e.message
                 withContext(Dispatchers.Main) {
                     _state.update { it.copy(error = msg) }
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    _state.update { it.copy(loading = false) }
+                }
+            }
+        }
+    }
+
+    /** 用当前填的账号密码去服务器注册，成功后自动登录 */
+    fun register() {
+        val s = _state.value
+        val ep = ServerEndpoint.parse(s.server)
+        if (ep == null) {
+            _state.update { it.copy(serverError = "请输入有效的服务器地址，如 192.168.1.235:8443") }
+            return
+        }
+        val username = s.username.trim()
+        if (username.isEmpty() || s.password.isEmpty()) {
+            _state.update { it.copy(error = "先填好账号和密码，再点注册") }
+            return
+        }
+        if (s.loading) return
+        _state.update { it.copy(loading = true, error = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repo.register(ep, username, s.password)
+                // 注册成功 → 直接登录
+                repo.login(ep, username, s.password)
+                if (s.rememberPassword) repo.savePassword(ep.serialize(), username, s.password)
+                else repo.clearPassword(ep.serialize(), username)
+            } catch (e: ApiException.UntrustedCertificate) {
+                withContext(Dispatchers.Main) {
+                    pendingAction = ::register
+                    _state.update { it.copy(untrusted = e.info) }
+                }
+            } catch (e: ApiException) {
+                val msg = if (!ep.secure && e is ApiException.Network)
+                    "${e.message}（当前为 HTTP 明文连接）" else e.message
+                withContext(Dispatchers.Main) {
+                    _state.update { it.copy(error = msg) }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _state.update { it.copy(error = "注册失败：这台服务器可能没有开放注册（${e.message ?: "网络错误"}）") }
                 }
             } finally {
                 withContext(Dispatchers.Main) {

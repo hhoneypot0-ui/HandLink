@@ -20,8 +20,8 @@ object ScrcpyOptions {
             .put("bwe", s.bwe)
             .put("audio", s.audio)
             .put("audio_gain", 1)
-            .put("audio_source", "output")
-            .put("audio_dup", true)
+            .put("audio_source", s.audioSource.ifBlank { "output" })
+            .put("audio_dup", s.audioDup)
             .put("audio_low_latency", false)
             .put("power_off", s.powerOff)
 

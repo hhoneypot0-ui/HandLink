@@ -127,6 +127,7 @@ class RtcSession(
 
     // 渲染目标可随 Activity 重建切换；为 null 时直接丢帧（后台保活）
     @Volatile private var renderer: VideoSink? = null
+    private val tunedReceivers = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
     private val frameSink = VideoSink { frame: VideoFrame ->
         val w = frame.rotatedWidth
@@ -408,10 +409,12 @@ class RtcSession(
         }
 
         override fun onTrack(transceiver: RtpTransceiver) {
+            transceiver.receiver?.let { r -> tuneReceiver(r) }
             transceiver.receiver?.track()?.let { t -> post { attachTrack(t) } }
         }
 
         override fun onAddTrack(receiver: RtpReceiver, streams: Array<out MediaStream>) {
+            tuneReceiver(receiver)
             receiver.track()?.let { t -> post { attachTrack(t) } }
         }
 
@@ -451,6 +454,21 @@ class RtcSession(
                 if (closed) return@scheduleWithFixedDelay
                 p.getStats { report -> post { _stats.value = statsCalc.compute(report) } }
             }, 1, 1, TimeUnit.SECONDS)
+        }
+    }
+
+    /**
+     * 低延迟调优：把接收端抖动缓冲和播放延迟压到最小。
+     * 默认的抖动缓冲会为了抗丢包多缓存 200~500ms，屏幕共享场景下就是「不跟手」的主因。
+     * 用反射调用，避免不同 webrtc 版本方法缺失导致崩溃。
+     */
+    private fun tuneReceiver(r: RtpReceiver) {
+        if (!tunedReceivers.add(r.id())) return
+        runCatching {
+            r.javaClass.getMethod("setJitterBufferDelayHint", java.lang.Double.TYPE).invoke(r, 0.0)
+        }
+        runCatching {
+            r.javaClass.getMethod("setPlayoutDelayHint", java.lang.Double.TYPE).invoke(r, 0.0)
         }
     }
 

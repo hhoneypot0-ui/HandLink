@@ -417,6 +417,11 @@ internal class ProjectionSignaling(
             val parameters = sender.parameters
             check(parameters.encodings.isNotEmpty()) { "录屏视频发送端没有编码参数" }
             parameters.encodings.forEach { it.maxBitrateBps = bitrate.maxBps }
+            // 跟手优先：宁可临时降清晰度，也不要掉帧
+            runCatching {
+                parameters.degradationPreference =
+                    org.webrtc.RtpParameters.DegradationPreference.MAINTAIN_FRAMERATE
+            }
             check(sender.setParameters(parameters)) { "无法设置录屏视频码率上限" }
             // 码率范围用于拥塞控制，视频轨的上限独立限制编码器。
             if (!connection.setBitrate(bitrate.minBps, bitrate.startBps, bitrate.maxBps)) {

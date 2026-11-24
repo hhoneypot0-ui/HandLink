@@ -83,7 +83,19 @@ data class Device(
     val leaseHolder: String? = null,
     val alias: String = "",
 ) {
-    val displayName: String get() = alias.ifBlank { id }
+    /**
+     * 显示名：优先用户自定义别名；否则用「品牌 + 型号」这种看得懂的名字，
+     * 不直接甩一串 UUID 给用户看。
+     */
+    val displayName: String get() = alias.ifBlank {
+        when {
+            // info.title 服务端已经拼成「OPPO PFGM00」这种可读形式
+            info.title.isNotBlank() -> info.title.trim()
+            info.brand.isNotBlank() || info.model.isNotBlank() ->
+                listOf(info.brand.trim(), info.model.trim()).filter { it.isNotBlank() }.joinToString(" ")
+            else -> id.substringBefore("-").ifBlank { "一台手机" }
+        }
+    }
     val inUse: Boolean get() = clientCount > 0
     val screenOff: Boolean get() = screenState.equals("off", ignoreCase = true)
 }

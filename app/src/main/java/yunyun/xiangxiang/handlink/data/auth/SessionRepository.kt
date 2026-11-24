@@ -56,6 +56,11 @@ class SessionRepository(
     fun anonymousApi(endpoint: ServerEndpoint): CloudPhoneApi =
         CloudPhoneApi(ApiClient(httpFactory, endpoint, tokenProvider = { null }))
 
+    /** 自助注册：调服务器上的注册服务（不写本地会话） */
+    suspend fun register(endpoint: ServerEndpoint, username: String, password: String) {
+        anonymousApi(endpoint).register(username, password)
+    }
+
     suspend fun login(endpoint: ServerEndpoint, username: String, password: String): AuthSession {
         val result = anonymousApi(endpoint).login(username, password)
         val s = AuthSession(endpoint.serialize(), result.token, result.username, result.role)

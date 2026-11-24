@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import yunyun.xiangxiang.handlink.container
 
 enum class HostStatus {
     STOPPED,
@@ -141,12 +142,29 @@ class HostViewModel(app: Application) : AndroidViewModel(app) {
 
     fun fillSignalingUrl(url: String) {
         if (url.isBlank()) return
-        val normalized = if (!url.startsWith("ws://") && !url.startsWith("wss://")) {
-            if (url.startsWith("https://")) url.replaceFirst("https://", "wss://")
-            else if (url.startsWith("http://")) url.replaceFirst("http://", "ws://")
-            else "wss://$url"
-        } else url
-        updatePrefs { it.copy(signalingUrl = normalized) }
+        updatePrefs { it.copy(signalingUrl = normalizeSignaling(url)) }
+    }
+
+    /**
+     * 把用户填的地址规范成 agent 能用的 ws(s) 基地址。
+     * 关键是补齐端口：只写 IP 的话会变成 ws://ip（默认 80 端口），连不上 8443 的信令服务。
+     */
+    private fun normalizeSignaling(url: String): String = HostConfig.normalizeSignalingUrl(url)
+
+    /**
+     * 第一次当被控端时，把「一加 15」这种看得懂的名字写到服务器。
+     * 这样对方在列表里看到的是机型名，而不是 PLK110-fb8f620c-... 这种。
+     */
+    private suspend fun syncDeviceNameOnce(deviceId: String) {
+        val app = getApplication<Application>()
+        val sp = HostConfig.getPrefs(app)
+        if (sp.getBoolean("device_name_synced", false)) return
+        val name = DeviceNames.marketingName(app)
+        if (name.isBlank()) return
+        runCatching {
+            app.container.sessions.api()?.setDeviceAlias(deviceId, name)
+            sp.edit().putBoolean("device_name_synced", true).apply()
+        }
     }
 
     fun requestShizukuPermission() {
@@ -190,6 +208,12 @@ class HostViewModel(app: Application) : AndroidViewModel(app) {
             if (currentPrefs.signalingUrl.isBlank()) {
                 _state.update { it.copy(isBusy = false, errorMessage = "请填写外部信令服务器地址") }
                 return@launch
+            }
+            syncDeviceNameOnce(currentPrefs.deviceId)
+            val normalizedSig = normalizeSignaling(currentPrefs.signalingUrl)
+            if (normalizedSig != currentPrefs.signalingUrl) {
+                // 只填了 IP 的情况：补上 wss:// 和 8443 端口，否则 agent 会连到 80 端口
+                updatePrefs { it.copy(signalingUrl = normalizedSig) }
             }
             // 检查权限
             if (useShizuku) {
