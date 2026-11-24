@@ -519,7 +519,7 @@ fun AboutScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(16.dp))
 
             SectionCard {
-                SettingRow("版本", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                SettingRow("版本", BuildConfig.VERSION_NAME)
                 SettingRow("包名", BuildConfig.APPLICATION_ID)
             }
             SectionCard(title = "给我们的话") {
