@@ -120,13 +120,6 @@ fun HostScreen(
         }
     }
 
-    // 没有内置 Root 组件时，自动回到系统录屏，避免用户卡在不可用的模式
-    LaunchedEffect(state.hasAssets, state.prefs.runMode) {
-        if (!state.hasAssets && state.prefs.runMode == RunMode.ROOT) {
-            vm.updatePrefs { it.copy(runMode = RunMode.PROJECTION) }
-        }
-    }
-
     LaunchedEffect(state.toastMessage) {
         state.toastMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -252,7 +245,7 @@ fun HostScreen(
                 )
             }
 
-            if (advanced) SectionCard(title = "服务器与设备") {
+            SectionCard(title = "信令服务器") {
                 Column(Modifier.padding(16.dp)) {
                     OutlinedTextField(
                         value = state.prefs.signalingUrl,
@@ -277,6 +270,7 @@ fun HostScreen(
                         }
                     }
 
+                    if (advanced) {
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = state.prefs.deviceId,
@@ -301,33 +295,32 @@ fun HostScreen(
                     )
                 }
             }
+            }
 
             // 执行引擎与保活选项
             SectionCard(title = "用哪种方式") {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Text("推荐用「系统录屏」", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text("推荐用「Shizuku」", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Column(Modifier.fillMaxWidth()) {
                         EngineOption(
-                            title = "系统录屏（推荐）",
-                            desc = "最简单，不用折腾权限，打开就能让对方看",
+                            title = "Shizuku（推荐）",
+                            desc = "能完整控制你的手机，需要先装 Shizuku 并授权",
+                            selected = state.prefs.runMode == RunMode.SHIZUKU,
+                            enabled = !state.serviceRunning && !state.isBusy,
+                        ) { vm.updatePrefs { it.copy(runMode = RunMode.SHIZUKU) } }
+                        EngineOption(
+                            title = "系统录屏",
+                            desc = "最简单，不用装东西；对方只能看，不能操作",
                             selected = state.prefs.runMode == RunMode.PROJECTION,
                             enabled = !state.serviceRunning && !state.isBusy,
                         ) { vm.updatePrefs { it.copy(runMode = RunMode.PROJECTION) } }
                         EngineOption(
-                            title = "Shizuku（对方能操作你的手机）",
-                            desc = "需要装 Shizuku 并授权，可以完整控制",
-                            selected = state.prefs.runMode == RunMode.SHIZUKU,
+                            title = "Root",
+                            desc = "手机已 root（Magisk / KernelSU）时可用",
+                            selected = state.prefs.runMode == RunMode.ROOT,
                             enabled = !state.serviceRunning && !state.isBusy,
-                        ) { vm.updatePrefs { it.copy(runMode = RunMode.SHIZUKU) } }
-                        if (state.hasAssets) {
-                            EngineOption(
-                                title = "Root（进阶，一般不用）",
-                                desc = "手机已刷 Magisk / KernelSU 才可用",
-                                selected = state.prefs.runMode == RunMode.ROOT,
-                                enabled = !state.serviceRunning && !state.isBusy,
-                            ) { vm.updatePrefs { it.copy(runMode = RunMode.ROOT) } }
-                        }
+                        ) { vm.updatePrefs { it.copy(runMode = RunMode.ROOT) } }
                     }
 
                     Spacer(Modifier.height(4.dp))
@@ -335,7 +328,10 @@ fun HostScreen(
                         when (state.prefs.runMode) {
                             RunMode.PROJECTION -> "点下面的按钮，系统会问你「是否允许录屏」，点立即开始就好。"
                             RunMode.SHIZUKU -> "先点「请求 Shizuku 授权」，允许之后才能开始。"
-                            RunMode.ROOT -> "需要手机已 Root，并在弹窗里授予权限。"
+                            RunMode.ROOT -> if (state.hasAssets)
+                                "需要手机已 root，并在弹窗里授予权限。"
+                            else
+                                "这个安装包没有内置 Root 组件，建议改用 Shizuku。"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
