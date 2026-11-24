@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>牵手远程 HandLink — 两台手机，一块屏幕</title>
+<meta name="description" content="牵手远程：异地也能看到对方的手机屏幕，还能直接操作。免 Root，低延迟，高清画质。">
+<link rel="icon" href="assets/logo.png">
+<style>
+  :root{
+    --pink:#FF98BE;
+    --pink-deep:#F06292;
+    --pink-soft:#FFE4EE;
+    --pink-mist:#FFF6FA;
+    --ink:#2B2B33;
+    --ink-2:#6B6B78;
+    --line:#F2DCE6;
+    --radius:22px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);
+    background:var(--pink-mist);
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 22px}
+
+  /* ---------- 顶部 ---------- */
+  header{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:blur(14px);
+    background:rgba(255,246,250,.82);
+    border-bottom:1px solid var(--line);
+  }
+  .nav{display:flex;align-items:center;gap:12px;height:62px}
+  .nav img{width:34px;height:34px;border-radius:9px}
+  .nav b{font-size:16px;letter-spacing:.3px}
+  .nav .spacer{flex:1}
+  .nav a.link{
+    font-size:14px;color:var(--ink-2);padding:7px 12px;border-radius:10px;
+    transition:.2s;
+  }
+  .nav a.link:hover{background:var(--pink-soft);color:var(--pink-deep)}
+
+  /* ---------- Hero ---------- */
+  .hero{padding:72px 0 56px;text-align:center;position:relative;overflow:hidden}
+  .hero::before{
+    content:"";position:absolute;inset:-40% -20% auto -20%;height:620px;
+    background:radial-gradient(closest-side,rgba(255,152,190,.28),transparent 72%);
+    pointer-events:none;
+  }
+  .hero .logo{
+    width:112px;height:112px;border-radius:28px;
+    box-shadow:0 18px 40px rgba(240,98,146,.28);
+    margin-bottom:26px;position:relative;
+  }
+  .hero h1{font-size:40px;line-height:1.25;letter-spacing:-.5px;margin-bottom:10px}
+  .hero h1 span{color:var(--pink-deep)}
+  .hero .sub{font-size:18px;color:var(--ink-2);margin-bottom:8px}
+  .hero .slogan{font-size:15px;color:var(--ink-2);opacity:.8;margin-bottom:32px}
+  .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:14px 26px;border-radius:999px;font-size:15px;font-weight:600;
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .btn-primary{
+    background:linear-gradient(135deg,var(--pink),var(--pink-deep));
+    color:#fff;box-shadow:0 12px 28px rgba(240,98,146,.34);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(240,98,146,.42)}
+  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{transform:translateY(-2px);background:var(--pink-soft)}
+  .ver{margin-top:18px;font-size:13px;color:var(--ink-2);opacity:.75}
+
+  /* ---------- 通用区块 ---------- */
+  section{padding:56px 0}
+  .sec-title{font-size:26px;text-align:center;margin-bottom:8px;letter-spacing:-.3px}
+  .sec-sub{text-align:center;color:var(--ink-2);font-size:15px;margin-bottom:36px}
+
+  /* ---------- 特性 ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    padding:24px;transition:.22s;
+  }
+  .card:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(240,98,146,.12)}
+  .card .ico{
+    width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
+    background:var(--pink-soft);font-size:21px;margin-bottom:14px;
+  }
+  .card h3{font-size:16px;margin-bottom:6px}
+  .card p{font-size:14px;color:var(--ink-2)}
+
+  /* ---------- 三步 ---------- */
+  .steps{display:grid;gap:14px}
+  .step{
+    display:flex;gap:16px;align-items:flex-start;
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px 22px;
+  }
+  .step .num{
+    flex:0 0 34px;height:34px;border-radius:50%;
+    background:var(--pink-soft);color:var(--pink-deep);
+    display:grid;place-items:center;font-weight:700;font-size:15px;
+  }
+  .step h4{font-size:15px;margin-bottom:4px}
+  .step p{font-size:14px;color:var(--ink-2)}
+
+  /* ---------- 下载 ---------- */
+  .dl{
+    background:linear-gradient(135deg,#fff,var(--pink-mist));
+    border:1px solid var(--line);border-radius:28px;
+    padding:44px 28px;text-align:center;
+  }
+  .dl h2{font-size:24px;margin-bottom:10px}
+  .dl p{color:var(--ink-2);font-size:15px;margin-bottom:26px}
+  .dl .note{margin-top:20px;font-size:12.5px;color:var(--ink-2);opacity:.8;line-height:1.9}
+
+  /* ---------- 页脚 ---------- */
+  footer{
+    border-top:1px solid var(--line);
+    padding:34px 0 46px;text-align:center;
+    font-size:13.5px;color:var(--ink-2);
+  }
+  footer a{color:var(--pink-deep)}
+  footer .heart{color:var(--pink-deep)}
+
+  @media (max-width:560px){
+    .hero{padding:52px 0 40px}
+    .hero h1{font-size:30px}
+    .hero .sub{font-size:16px}
+    .hero .logo{width:92px;height:92px;border-radius:22px}
+    section{padding:44px 0}
+    .nav a.link{padding:6px 8px;font-size:13px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <img src="assets/logo.png" alt="牵手远程">
+    <b>牵手远程</b>
+    <div class="spacer"></div>
+    <a class="link" href="#features">特点</a>
+    <a class="link" href="#how">怎么用</a>
+    <a class="link" href="https://github.com/hhoneypot0-ui/HandLink" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <img class="logo" src="assets/logo.png" alt="牵手远程 Logo">
+    <h1>牵手<span>远程</span></h1>
+    <p class="sub">两台手机，一块屏幕</p>
+    <p class="slogan">不管隔多远，都能看到对方在做什么</p>
+    <div class="btns">
+      <a class="btn btn-primary" id="download" href="https://github.com/hhoneypot0-ui/HandLink/releases/latest">
+        ⬇ 下载 App
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/hhoneypot0-ui/HandLink" target="_blank" rel="noopener">
+        查看源码
+      </a>
+    </div>
+    <p class="ver">v2.0 · 安卓 7.0 以上 · 免 Root</p>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2 class="sec-title">用起来是什么感觉</h2>
+    <p class="sec-sub">不是远程协助，是真的像把两块屏幕拼在一起</p>
+    <div class="cards">
+      <div class="card">
+        <div class="ico">⚡</div>
+        <h3>跟手</h3>
+        <p>点下去就有反应，滑动是滑动，不是一张一张刷新。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🖼</div>
+        <h3>清楚</h3>
+        <p>最高 1920p、60 帧，视频和照片都看得清细节。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🌏</div>
+        <h3>跨网络</h3>
+        <p>不要求同一个 WiFi。异地、流量、换网络都能连。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔓</div>
+        <h3>免 Root</h3>
+        <p>打开系统录屏授权就能用，不用刷机，不用开 USB 调试。</p>
+      </div>
+      <div class="card">
+        <div class="ico">👆</div>
+        <h3>能操作</h3>
+        <p>不只是看。装个 Shizuku，就能直接点对方的手机。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔒</div>
+        <h3>自己的服务器</h3>
+        <p>画面走你自己搭的服务器，加密传输，不经过别人。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <h2 class="sec-title">三步就好</h2>
+    <p class="sec-sub">两台手机都装上，一台给人看，一台看别人</p>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <div>
+          <h4>两台手机都装 App</h4>
+          <p>下载安装包，各自装好，用同一个账号登录。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <div>
+          <h4>「让对方看我的屏幕」的那台</h4>
+          <p>打开「我的 → 让对方看我的屏幕」，点「让对方连进来」，系统问是否允许录屏时点「立即开始」。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <div>
+          <h4>另一台点进去看</h4>
+          <p>回到「手机」页，点对方那台设备，画面就出来了。直接点、直接滑都行。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="dl">
+      <h2>试试看</h2>
+      <p>下载安装包，两台手机都装上，五分钟后就能连起来</p>
+      <div class="btns">
+        <a class="btn btn-primary" href="https://github.com/hhoneypot0-ui/HandLink/releases/latest">⬇ 下载 App</a>
+      </div>
+      <p class="note">
+        需要一台自己的服务器（信令 + 中继），部署说明见 GitHub。<br>
+        想要完整控制对方手机，被控端需要装 Shizuku 并授权一次。
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>用 <span class="heart">♥</span> 做的 · <a href="https://github.com/hhoneypot0-ui/HandLink" target="_blank" rel="noopener">GitHub</a></p>
+    <p style="margin-top:6px;opacity:.7">基于开源项目 WebrtcPhone-Android 开发</p>
+  </div>
+</footer>
+
+</body>
+</html>
