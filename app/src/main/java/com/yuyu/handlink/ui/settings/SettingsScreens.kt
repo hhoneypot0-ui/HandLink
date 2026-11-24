@@ -68,6 +68,15 @@ import com.yuyu.handlink.ui.common.EmptyState
 import com.yuyu.handlink.ui.common.SectionCard
 import com.yuyu.handlink.ui.common.SettingRow
 import com.yuyu.handlink.ui.common.SwitchRow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Tune
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,47 +133,136 @@ fun StreamQualityEditor(
     val lockBitrate = policy?.forbidBitrate == true
     val lockAudio = policy?.forbidAudio == true
     val presetLocked = lockRes || lockFps || lockBitrate
-    SectionCard(title = "画质档位") {
-        FlowRow(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            QualityPreset.entries.filter { it != QualityPreset.CUSTOM }.forEach { p ->
-                FilterChip(
-                    selected = s.preset == p, enabled = !presetLocked,
-                    onClick = { onChange { it.withPreset(p) } },
-                    label = { Text(p.label + if (p.maxSize > 0) " ${p.maxSize}p" else "") }
+    var advanced by remember { mutableStateOf(false) }
+
+    SectionCard(title = "画质（选一个就行）") {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            PresetOption(
+                title = "省流量",
+                desc = "网络不好的时候用，画面糊一点但很顺",
+                preset = QualityPreset.SMOOTH,
+                current = s.preset, enabled = !presetLocked, onChange = onChange,
+            )
+            PresetOption(
+                title = "日常（推荐）",
+                desc = "清晰又流畅，平时用这个就好",
+                preset = QualityPreset.STANDARD,
+                current = s.preset, enabled = !presetLocked, onChange = onChange,
+            )
+            PresetOption(
+                title = "高清",
+                desc = "网络好的时候用，画面很清楚",
+                preset = QualityPreset.HIGH,
+                current = s.preset, enabled = !presetLocked, onChange = onChange,
+            )
+            PresetOption(
+                title = "原画",
+                desc = "几乎不压缩，很费流量和性能",
+                preset = QualityPreset.ORIGINAL,
+                current = s.preset, enabled = !presetLocked, onChange = onChange,
+            )
+        }
+    }
+
+    SectionCard {
+        SwitchRow(
+            "传输声音", s.audio, { b -> onChange { it.copy(audio = b) } },
+            subtitle = "对方能听到你这边的声音", enabled = !lockAudio,
+        )
+    }
+
+    SectionCard {
+        SettingRow(
+            title = "高级设置",
+            subtitle = if (advanced) "点这里收起" else "一般不用动，懂行再点开",
+            icon = Icons.Outlined.Tune,
+            onClick = { advanced = !advanced },
+        )
+        if (advanced) {
+            SliderRow(
+                "最大分辨率（长边）", s.maxSize.toFloat(), 0f..2560f, 8,
+                label = if (s.maxSize == 0) "原始" else "${s.maxSize}px", enabled = !lockRes,
+            ) { v -> onChange { it.copy(maxSize = snapSize(v), preset = QualityPreset.CUSTOM) } }
+            SliderRow(
+                "最大帧率", s.maxFps.toFloat(), 0f..120f, 7,
+                label = if (s.maxFps == 0) "不限" else "${s.maxFps} fps", enabled = !lockFps,
+            ) { v -> onChange { it.copy(maxFps = (v / 15).toInt() * 15, preset = QualityPreset.CUSTOM) } }
+            SliderRow(
+                "码率", s.bitrateMbps.toFloat(), 1f..40f, 38, label = "${s.bitrateMbps} Mbps", enabled = !lockBitrate,
+            ) { v -> onChange { it.copy(bitrateMbps = v.toInt(), preset = QualityPreset.CUSTOM) } }
+            SwitchRow(
+                "动态码率 (BWE)", s.bwe, { b -> onChange { it.copy(bwe = b) } },
+                subtitle = "根据网络状况自动调节 ${s.minBitrateMbps}–${s.maxBitrateMbps} Mbps，弱网更流畅",
+                enabled = !lockBitrate,
+            )
+            if (s.bwe) {
+                SliderRow("最低码率", s.minBitrateMbps.toFloat(), 1f..20f, 18, "${s.minBitrateMbps} Mbps", !lockBitrate) { v ->
+                    onChange { it.copy(minBitrateMbps = v.toInt()) }
+                }
+                SliderRow("最高码率", s.maxBitrateMbps.toFloat(), 2f..60f, 57, "${s.maxBitrateMbps} Mbps", !lockBitrate) { v ->
+                    onChange { it.copy(maxBitrateMbps = v.toInt()) }
+                }
+            }
+            SwitchRow(
+                "开启息屏连接", s.powerOff, { b -> onChange { it.copy(powerOff = b) } },
+                subtitle = "唤醒录屏后自动切断真机显示背光 (防窥省电)",
+            )
+        }
+    }
+}
+
+@Composable
+private fun PresetOption(
+    title: String,
+    desc: String,
+    preset: QualityPreset,
+    current: QualityPreset,
+    enabled: Boolean,
+    onChange: ((StreamSettings) -> StreamSettings) -> Unit,
+) {
+    val selected = current == preset
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent
+            )
+            .then(if (enabled) Modifier.clickable { onChange { it.withPreset(preset) } } else Modifier)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Icon(
+                    Icons.Outlined.Check, null,
+                    tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp),
                 )
             }
         }
-    }
-    SectionCard(title = "高级参数") {
-        SliderRow(
-            "最大分辨率（长边）", s.maxSize.toFloat(), 0f..2560f, 8,
-            label = if (s.maxSize == 0) "原始" else "${s.maxSize}px", enabled = !lockRes,
-        ) { v -> onChange { it.copy(maxSize = snapSize(v), preset = QualityPreset.CUSTOM) } }
-        SliderRow(
-            "最大帧率", s.maxFps.toFloat(), 0f..120f, 7,
-            label = if (s.maxFps == 0) "不限" else "${s.maxFps} fps", enabled = !lockFps,
-        ) { v -> onChange { it.copy(maxFps = (v / 15).toInt() * 15, preset = QualityPreset.CUSTOM) } }
-        SliderRow(
-            "码率", s.bitrateMbps.toFloat(), 1f..40f, 38, label = "${s.bitrateMbps} Mbps", enabled = !lockBitrate,
-        ) { v -> onChange { it.copy(bitrateMbps = v.toInt(), preset = QualityPreset.CUSTOM) } }
-        SwitchRow(
-            "动态码率 (BWE)", s.bwe, { b -> onChange { it.copy(bwe = b) } },
-            subtitle = "根据网络状况自动调节 ${s.minBitrateMbps}–${s.maxBitrateMbps} Mbps，弱网更流畅",
-            enabled = !lockBitrate,
-        )
-        if (s.bwe) {
-            SliderRow("最低码率", s.minBitrateMbps.toFloat(), 1f..20f, 18, "${s.minBitrateMbps} Mbps", !lockBitrate) { v ->
-                onChange { it.copy(minBitrateMbps = v.toInt()) }
-            }
-            SliderRow("最高码率", s.maxBitrateMbps.toFloat(), 2f..60f, 57, "${s.maxBitrateMbps} Mbps", !lockBitrate) { v ->
-                onChange { it.copy(maxBitrateMbps = v.toInt()) }
-            }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            )
+            Text(
+                desc, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        SwitchRow("传输声音", s.audio, { b -> onChange { it.copy(audio = b) } }, subtitle = "Opus 音频，关闭可节省约 128Kbps", enabled = !lockAudio)
-        SwitchRow(
-            "开启息屏连接", s.powerOff, { b -> onChange { it.copy(powerOff = b) } },
-            subtitle = "唤醒录屏后自动切断真机显示背光 (防窥省电)",
-        )
     }
 }
 
@@ -314,7 +412,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 SettingRow(
                     "GitHub 仓库",
                     "hhoneypot0-ui/HandLink",
-                    icon = Icons.Outlined.Code,
+                    painter = painterResource(R.drawable.ic_github),
                     onClick = {
                         runCatching {
                             ctx.startActivity(

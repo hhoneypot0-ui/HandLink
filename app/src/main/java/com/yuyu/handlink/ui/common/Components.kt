@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -103,6 +104,7 @@ fun SettingRow(
     title: String,
     subtitle: String? = null,
     icon: ImageVector? = null,
+    painter: Painter? = null,
     tint: Color = MaterialTheme.colorScheme.primary,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -115,11 +117,17 @@ fun SettingRow(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) {
+        if (icon != null || painter != null) {
             Box(
                 Modifier.size(34.dp).background(tint.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
-            ) { Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp)) }
+            ) {
+                if (painter != null) {
+                    Icon(painter, null, tint = tint, modifier = Modifier.size(20.dp))
+                } else {
+                    Icon(icon!!, null, tint = tint, modifier = Modifier.size(20.dp))
+                }
+            }
             Spacer(Modifier.width(14.dp))
         }
         Column(Modifier.weight(1f)) {
