@@ -87,6 +87,7 @@ import com.yuyu.handlink.ui.common.SectionCard
 import com.yuyu.handlink.ui.common.StatusDot
 import com.yuyu.handlink.ui.common.SwitchRow
 import com.yuyu.handlink.ui.theme.AppColors
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -117,6 +118,13 @@ fun HostScreen(
         }
     }
 
+    // 没有内置 Root 组件时，自动回到系统录屏，避免用户卡在不可用的模式
+    LaunchedEffect(state.hasAssets, state.prefs.runMode) {
+        if (!state.hasAssets && state.prefs.runMode == RunMode.ROOT) {
+            vm.updatePrefs { it.copy(runMode = RunMode.PROJECTION) }
+        }
+    }
+
     LaunchedEffect(state.toastMessage) {
         state.toastMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -140,7 +148,7 @@ fun HostScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("本机受控端 (Host Agent)") },
+                title = { Text("让对方看我的屏幕") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -165,33 +173,23 @@ fun HostScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
-            // 缺失资产警告
-            if (!state.hasAssets && state.prefs.runMode != RunMode.PROJECTION) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = AppColors.Warning.copy(alpha = 0.15f)),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Outlined.WarningAmber, null, tint = AppColors.Warning, modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text("未集成受控端内置组件", fontWeight = FontWeight.Bold, color = AppColors.Warning)
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "当前安装包为精简客户端模式，未打包 cloudphone-agent 二进制。请使用包含受控组件的 Full 发行版。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-
             // 状态卡片
             HostStatusBanner(state)
+
+            // 小白指引
+            SectionCard(title = "三步就好") {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    GuideStep("1", "选好下面的方式（默认「系统录屏」就行）")
+                    GuideStep("2", "点下面的大按钮")
+                    GuideStep("3", "系统弹窗问「允许录屏」时，点「立即开始」")
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "弄好之后，对方手机上就会看到你的屏幕。想停下来就再点一次按钮。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             // 核心控制按钮
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -233,9 +231,7 @@ fun HostScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            if (state.prefs.runMode == RunMode.PROJECTION) {
-                                if (isRunning) "断开连接" else "让对方连进来"
-                            } else if (isRunning) "停止受控端 (Stop Agent)" else "启动受控端 (Start Agent)",
+                            if (isRunning) "断开连接" else "让对方连进来",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -299,47 +295,35 @@ fun HostScreen(
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Text("选择执行引擎", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        FilterChip(
-                            enabled = !state.serviceRunning && !state.isBusy,
-                            selected = state.prefs.runMode == RunMode.ROOT,
-                            onClick = { vm.updatePrefs { it.copy(runMode = RunMode.ROOT) } },
-                            label = { Text("Root (su 提权)") },
-                            leadingIcon = if (state.prefs.runMode == RunMode.ROOT) {
-                                { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(16.dp)) }
-                            } else null,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = AppColors.Brand.copy(alpha = 0.2f),
-                                selectedLabelColor = AppColors.Brand
-                            )
-                        )
-                        FilterChip(
-                            enabled = !state.serviceRunning && !state.isBusy,
-                            selected = state.prefs.runMode == RunMode.SHIZUKU,
-                            onClick = { vm.updatePrefs { it.copy(runMode = RunMode.SHIZUKU) } },
-                            label = { Text("Shizuku (无线调试/免 Root)") },
-                            leadingIcon = if (state.prefs.runMode == RunMode.SHIZUKU) {
-                                { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(16.dp)) }
-                            } else null,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = AppColors.Brand.copy(alpha = 0.2f),
-                                selectedLabelColor = AppColors.Brand
-                            )
-                        )
-                        FilterChip(
-                            enabled = !state.serviceRunning && !state.isBusy,
+                    Column(Modifier.fillMaxWidth()) {
+                        EngineOption(
+                            title = "系统录屏（推荐）",
+                            desc = "最简单，不用折腾权限，打开就能让对方看",
                             selected = state.prefs.runMode == RunMode.PROJECTION,
-                            onClick = { vm.updatePrefs { it.copy(runMode = RunMode.PROJECTION) } },
-                            label = { Text("系统录屏（免 ADB / Root）") }
-                        )
+                            enabled = !state.serviceRunning && !state.isBusy,
+                        ) { vm.updatePrefs { it.copy(runMode = RunMode.PROJECTION) } }
+                        EngineOption(
+                            title = "Shizuku（对方能操作你的手机）",
+                            desc = "需要装 Shizuku 并授权，可以完整控制",
+                            selected = state.prefs.runMode == RunMode.SHIZUKU,
+                            enabled = !state.serviceRunning && !state.isBusy,
+                        ) { vm.updatePrefs { it.copy(runMode = RunMode.SHIZUKU) } }
+                        if (state.hasAssets) {
+                            EngineOption(
+                                title = "Root（进阶，一般不用）",
+                                desc = "手机已刷 Magisk / KernelSU 才可用",
+                                selected = state.prefs.runMode == RunMode.ROOT,
+                                enabled = !state.serviceRunning && !state.isBusy,
+                            ) { vm.updatePrefs { it.copy(runMode = RunMode.ROOT) } }
+                        }
                     }
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         when (state.prefs.runMode) {
-                            RunMode.PROJECTION -> "开启后在管理台显示在线。收到请求后在本机确认共享，锁屏结束共享后会回到待命。"
-                            RunMode.ROOT -> "Root 模式：利用常驻 su 会话调用，需要设备已刷入 Magisk / KernelSU / APatch。"
-                            RunMode.SHIZUKU -> "Shizuku 模式：通过 ADB 无线调试或已启动的 Shizuku 服务运行，无需解锁 Root。"
+                            RunMode.PROJECTION -> "点下面的按钮，系统会问你「是否允许录屏」，点立即开始就好。"
+                            RunMode.SHIZUKU -> "先点「请求 Shizuku 授权」，允许之后才能开始。"
+                            RunMode.ROOT -> "需要手机已 Root，并在弹窗里授予权限。"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -552,5 +536,72 @@ private fun InfoChip(text: String) {
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun EngineOption(
+    title: String,
+    desc: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent
+            )
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Icon(
+                    Icons.Outlined.Check, null,
+                    tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            )
+            Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun GuideStep(num: String, text: String) {
+    Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(22.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(num, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium)
     }
 }

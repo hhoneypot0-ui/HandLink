@@ -182,30 +182,35 @@ fun StreamQualityEditor(
             SliderRow(
                 "最大分辨率（长边）", s.maxSize.toFloat(), 0f..2560f, 8,
                 label = if (s.maxSize == 0) "原始" else "${s.maxSize}px", enabled = !lockRes,
+                hint = "画面能有多清楚。数字越大越清晰，也更耗流量和手机性能。",
             ) { v -> onChange { it.copy(maxSize = snapSize(v), preset = QualityPreset.CUSTOM) } }
             SliderRow(
                 "最大帧率", s.maxFps.toFloat(), 0f..120f, 7,
                 label = if (s.maxFps == 0) "不限" else "${s.maxFps} fps", enabled = !lockFps,
+                hint = "每秒多少张画面。越高越顺滑，看视频打游戏才需要调高。",
             ) { v -> onChange { it.copy(maxFps = (v / 15).toInt() * 15, preset = QualityPreset.CUSTOM) } }
             SliderRow(
                 "码率", s.bitrateMbps.toFloat(), 1f..40f, 38, label = "${s.bitrateMbps} Mbps", enabled = !lockBitrate,
+                hint = "每秒传多少数据。越高画面越好，网络跟不上就会卡。",
             ) { v -> onChange { it.copy(bitrateMbps = v.toInt(), preset = QualityPreset.CUSTOM) } }
             SwitchRow(
                 "动态码率 (BWE)", s.bwe, { b -> onChange { it.copy(bwe = b) } },
-                subtitle = "根据网络状况自动调节 ${s.minBitrateMbps}–${s.maxBitrateMbps} Mbps，弱网更流畅",
+                subtitle = "网络好用高码率，网络差自动降下来，不容易卡（当前 ${s.minBitrateMbps}–${s.maxBitrateMbps} Mbps）",
                 enabled = !lockBitrate,
             )
             if (s.bwe) {
-                SliderRow("最低码率", s.minBitrateMbps.toFloat(), 1f..20f, 18, "${s.minBitrateMbps} Mbps", !lockBitrate) { v ->
+                SliderRow("最低码率", s.minBitrateMbps.toFloat(), 1f..20f, 18, "${s.minBitrateMbps} Mbps", !lockBitrate,
+                    hint = "网络最差时至少保留这个清晰度") { v ->
                     onChange { it.copy(minBitrateMbps = v.toInt()) }
                 }
-                SliderRow("最高码率", s.maxBitrateMbps.toFloat(), 2f..60f, 57, "${s.maxBitrateMbps} Mbps", !lockBitrate) { v ->
+                SliderRow("最高码率", s.maxBitrateMbps.toFloat(), 2f..60f, 57, "${s.maxBitrateMbps} Mbps", !lockBitrate,
+                    hint = "网络好时最多用到这个清晰度") { v ->
                     onChange { it.copy(maxBitrateMbps = v.toInt()) }
                 }
             }
             SwitchRow(
                 "开启息屏连接", s.powerOff, { b -> onChange { it.copy(powerOff = b) } },
-                subtitle = "唤醒录屏后自动切断真机显示背光 (防窥省电)",
+                subtitle = "对方看屏幕时把真机屏幕关掉，省电又防偷看",
             )
         }
     }
@@ -274,13 +279,20 @@ private fun snapSize(v: Float): Int {
 @Composable
 private fun SliderRow(
     title: String, value: Float, range: ClosedFloatingPointRange<Float>, steps: Int, label: String,
-    enabled: Boolean, onChange: (Float) -> Unit,
+    enabled: Boolean, hint: String? = null, onChange: (Float) -> Unit,
 ) {
     var local by remember(value) { mutableStateOf(value) }
     Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
             Text(label + if (!enabled) " 🔒" else "", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
+        if (hint != null) {
+            Text(
+                hint, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+            )
         }
         Slider(
             value = local, onValueChange = { local = it }, onValueChangeFinished = { onChange(local) },
@@ -293,32 +305,140 @@ private fun SliderRow(
 @Composable
 fun AppSettingsScreen(repo: SettingsRepository, onBack: () -> Unit) {
     val a by repo.app.collectAsStateWithLifecycle()
-    val s by repo.stream.collectAsStateWithLifecycle()
+    var advanced by remember { mutableStateOf(false) }
+
     SubScreen("偏好设置", onBack) { pad ->
-        Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-            SectionCard(title = "外观") {
-                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(ThemeMode.SYSTEM to "跟随系统", ThemeMode.LIGHT to "浅色", ThemeMode.DARK to "深色").forEach { (m, l) ->
-                        FilterChip(selected = a.themeMode == m, onClick = { repo.updateApp { it.copy(themeMode = m) } }, label = { Text(l) })
+        Column(
+            Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)
+        ) {
+            SectionCard(title = "外观（选一个）") {
+                Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    ThemeOption(
+                        "跟随系统", "系统是深色就用深色，是浅色就用浅色",
+                        ThemeMode.SYSTEM, a.themeMode,
+                    ) { repo.updateApp { it.copy(themeMode = ThemeMode.SYSTEM) } }
+                    ThemeOption(
+                        "粉色", "亮一点，粉粉的",
+                        ThemeMode.LIGHT, a.themeMode,
+                    ) { repo.updateApp { it.copy(themeMode = ThemeMode.LIGHT) } }
+                    ThemeOption(
+                        "蓝色", "深蓝底，晚上看着不刺眼",
+                        ThemeMode.DARK, a.themeMode,
+                    ) { repo.updateApp { it.copy(themeMode = ThemeMode.DARK) } }
+                }
+            }
+
+            SectionCard(title = "用起来的手感") {
+                SwitchRow(
+                    "触控振动反馈", a.haptics, { b -> repo.updateApp { it.copy(haptics = b) } },
+                    subtitle = "点对方屏幕时有轻微震动",
+                )
+                SwitchRow(
+                    "剪贴板双向同步", a.clipboardSync, { b -> repo.updateApp { it.copy(clipboardSync = b) } },
+                    subtitle = "这边复制的，对方那边也能粘贴",
+                )
+                SwitchRow(
+                    "断线自动重连", a.autoReconnect, { b -> repo.updateApp { it.copy(autoReconnect = b) } },
+                    subtitle = "网络断了会自动帮你连回来",
+                )
+                SwitchRow(
+                    "投屏时保持亮屏", a.keepScreenOn, { b -> repo.updateApp { it.copy(keepScreenOn = b) } },
+                    subtitle = "看的时候屏幕不会自动黑掉",
+                )
+            }
+
+            SectionCard {
+                SettingRow(
+                    title = "高级设置",
+                    subtitle = if (advanced) "点这里收起" else "一般不用动，懂行再点开",
+                    icon = Icons.Outlined.Tune,
+                    onClick = { advanced = !advanced },
+                )
+                if (advanced) {
+                    SwitchRow(
+                        "显示虚拟导航键", a.showNavBar, { b -> repo.updateApp { it.copy(showNavBar = b) } },
+                        subtitle = "画面下方显示 返回/主页/多任务 三个键",
+                    )
+                    SwitchRow(
+                        "显示实时数据", a.showStats, { b -> repo.updateApp { it.copy(showStats = b) } },
+                        subtitle = "角落显示延迟、帧率、码率",
+                    )
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Text("屏幕方向", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "画面要不要强制横屏或竖屏，一般用「跟随画面」就好",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
+                        )
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "auto" to "跟随画面",
+                                "portrait" to "竖屏",
+                                "landscape" to "横屏",
+                                "sensor" to "跟随重力",
+                            ).forEach { (v, l) ->
+                                FilterChip(
+                                    selected = a.orientationLock == v,
+                                    onClick = { repo.updateApp { it.copy(orientationLock = v) } },
+                                    label = { Text(l) },
+                                )
+                            }
+                        }
                     }
                 }
             }
-            SectionCard(title = "投屏") {
-                SwitchRow("显示虚拟导航键", a.showNavBar, { b -> repo.updateApp { it.copy(showNavBar = b) } }, "画面下方显示 返回/主页/多任务", Icons.Outlined.ViewAgenda)
-                SwitchRow("显示性能指标", a.showStats, { b -> repo.updateApp { it.copy(showStats = b) } }, "延迟、帧率、码率、丢包实时浮层", Icons.Outlined.Insights)
-                SwitchRow("投屏时保持亮屏", a.keepScreenOn, { b -> repo.updateApp { it.copy(keepScreenOn = b) } }, null, Icons.Outlined.ScreenLockPortrait)
-                SwitchRow("开启息屏连接", s.powerOff, { b -> repo.updateStream { it.copy(powerOff = b) } }, "唤醒录屏后自动切断真机显示背光 (防窥省电)", Icons.Outlined.DarkMode)
-                SwitchRow("触控振动反馈", a.haptics, { b -> repo.updateApp { it.copy(haptics = b) } }, null, Icons.Outlined.Vibration)
-                SwitchRow("剪贴板双向同步", a.clipboardSync, { b -> repo.updateApp { it.copy(clipboardSync = b) } }, "本机复制自动同步到云手机，反之亦然", Icons.Outlined.ContentPaste)
-                SwitchRow("断线自动重连", a.autoReconnect, { b -> repo.updateApp { it.copy(autoReconnect = b) } }, "网络切换/抖动后自动恢复（最多 3 次）", Icons.Outlined.Sync)
+        }
+    }
+}
+
+@Composable
+private fun ThemeOption(
+    title: String,
+    desc: String,
+    mode: ThemeMode,
+    current: ThemeMode,
+    onClick: () -> Unit,
+) {
+    val selected = current == mode
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Icon(
+                    Icons.Outlined.Check, null,
+                    tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp),
+                )
             }
-            SectionCard(title = "屏幕方向") {
-                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("auto" to "跟随画面", "portrait" to "竖屏", "landscape" to "横屏", "sensor" to "跟随重力").forEach { (v, l) ->
-                        FilterChip(selected = a.orientationLock == v, onClick = { repo.updateApp { it.copy(orientationLock = v) } }, label = { Text(l) })
-                    }
-                }
-            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            )
+            Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -46,21 +46,22 @@ private val Light = lightColorScheme(
     error = AppColors.Danger,
 )
 
+/** 「蓝色」主题：深海蓝底 + 亮蓝点缀 */
 private val Dark = darkColorScheme(
-    primary = AppColors.BrandDark,
-    onPrimary = Color(0xFF00296F),
-    primaryContainer = Color(0xFF1D3F87),
-    onPrimaryContainer = Color(0xFFDCE6FF),
-    secondary = Color(0xFFB9C2D6),
-    secondaryContainer = Color(0xFF2B3242),
-    background = Color(0xFF0E1116),
-    surface = Color(0xFF151922),
-    surfaceVariant = Color(0xFF1E2430),
-    surfaceContainer = Color(0xFF191E28),
-    surfaceContainerHigh = Color(0xFF222835),
-    outline = Color(0xFF3A4252),
-    outlineVariant = Color(0xFF2A3140),
-    error = Color(0xFFFF6B6B),
+    primary = Color(0xFF7FB3FF),
+    onPrimary = Color(0xFF04203F),
+    primaryContainer = Color(0xFF1B3A63),
+    onPrimaryContainer = Color(0xFFD6E6FF),
+    secondary = Color(0xFFA8C4E8),
+    secondaryContainer = Color(0xFF22344D),
+    background = Color(0xFF0A1524),
+    surface = Color(0xFF101E31),
+    surfaceVariant = Color(0xFF16273D),
+    surfaceContainer = Color(0xFF0E1B2C),
+    surfaceContainerHigh = Color(0xFF17293F),
+    outline = Color(0xFF33506F),
+    outlineVariant = Color(0xFF22364D),
+    error = Color(0xFFFF7B7B),
 )
 
 private val AppTypography = Typography(

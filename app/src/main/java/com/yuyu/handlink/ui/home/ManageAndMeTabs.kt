@@ -132,7 +132,7 @@ fun MeTab(vm: HomeViewModel, navigate: (String) -> Unit) {
         }
         SectionCard(title = "通用") {
             SettingRow(
-                "外观", when (app.themeMode) { ThemeMode.SYSTEM -> "跟随系统"; ThemeMode.LIGHT -> "浅色"; ThemeMode.DARK -> "深色" },
+                "外观", when (app.themeMode) { ThemeMode.SYSTEM -> "跟随系统"; ThemeMode.LIGHT -> "粉色"; ThemeMode.DARK -> "蓝色" },
                 Icons.Outlined.DarkMode, onClick = { navigate(Routes.APP_SETTINGS) }
             )
             SettingRow("偏好设置", "振动反馈、剪贴板同步、自动重连…", Icons.Outlined.Tune, onClick = { navigate(Routes.APP_SETTINGS) })
