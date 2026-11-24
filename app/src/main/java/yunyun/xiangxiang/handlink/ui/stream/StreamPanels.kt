@@ -85,7 +85,7 @@ fun ToolGrid(vm: StreamViewModel, sections: List<Pair<String, List<ToolItem>>>) 
             )
             yunyun.xiangxiang.handlink.ui.common.Pill(
                 if (vm.target.isWs) "WS 中转" else "WebRTC 直连",
-                if (vm.target.isWs) yunyun.xiangxiang.handlink.ui.theme.AppColors.Brand else yunyun.xiangxiang.handlink.ui.theme.AppColors.Online,
+                if (vm.target.isWs) MaterialTheme.colorScheme.primary else yunyun.xiangxiang.handlink.ui.theme.AppColors.Online,
                 filled = true,
             )
         }

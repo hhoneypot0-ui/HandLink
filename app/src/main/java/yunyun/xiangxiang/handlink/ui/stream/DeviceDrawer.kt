@@ -201,7 +201,7 @@ private fun DeviceDrawerItem(device: Device, snapshot: Snapshot?, deviceTags: Li
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
-                    current -> Pill("当前设备", AppColors.Brand, filled = true)
+                    current -> Pill("当前设备", MaterialTheme.colorScheme.primary, filled = true)
                     !device.online -> Pill("不在线", AppColors.Offline)
                     device.inUse -> Pill("使用中 ${device.clientCount}", AppColors.Busy)
                     else -> Pill("空闲", AppColors.Online)

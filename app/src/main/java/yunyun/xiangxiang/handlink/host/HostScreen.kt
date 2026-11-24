@@ -207,7 +207,7 @@ fun HostScreen(
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = MaterialTheme.shapes.large,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRunning) AppColors.Danger else AppColors.Brand
+                        containerColor = if (isRunning) AppColors.Danger else MaterialTheme.colorScheme.primary
                     ),
                     enabled = !state.isBusy
                 ) {
@@ -416,7 +416,7 @@ fun HostScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Terminal, null, modifier = Modifier.size(18.dp), tint = AppColors.Brand)
+                            Icon(Icons.Outlined.Terminal, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(6.dp))
                             Text("运行输出 (tail -n 40)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         }
@@ -500,7 +500,7 @@ private fun HostStatusBanner(state: HostUiState) {
                 }
 
                 if (state.agentPid.isNotEmpty()) {
-                    Pill("PID: ${state.agentPid}", AppColors.Brand, filled = false)
+                    Pill("PID: ${state.agentPid}", MaterialTheme.colorScheme.primary, filled = false)
                 }
             }
 

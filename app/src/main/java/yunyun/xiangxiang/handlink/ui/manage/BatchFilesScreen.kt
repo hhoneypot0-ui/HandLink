@@ -182,7 +182,7 @@ private fun StepHeader(step: Int, fileReady: Boolean, deviceCount: Int, onJump: 
         StepPill(1, "选择文件", active = step == 0, done = fileReady && step > 0, onClick = { onJump(0) })
         Box(
             Modifier.weight(1f).padding(horizontal = 8.dp).height(2.dp).background(
-                if (fileReady) AppColors.Brand.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant
+                if (fileReady) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant
             )
         )
         StepPill(2, "选择设备", active = step == 1, done = false, enabled = fileReady, onClick = { if (fileReady) onJump(1) })
@@ -191,11 +191,11 @@ private fun StepHeader(step: Int, fileReady: Boolean, deviceCount: Int, onJump: 
 
 @Composable
 private fun StepPill(index: Int, label: String, active: Boolean, done: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    val bg = when { active -> AppColors.Brand; done -> AppColors.Online; else -> MaterialTheme.colorScheme.surfaceContainerHigh }
+    val bg = when { active -> MaterialTheme.colorScheme.primary; done -> AppColors.Online; else -> MaterialTheme.colorScheme.surfaceContainerHigh }
     val fg = if (active || done) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         Modifier.clip(RoundedCornerShape(50)).clickable(enabled = enabled, onClick = onClick)
-            .background(if (active) AppColors.Brand.copy(alpha = 0.12f) else Color.Transparent)
+            .background(if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -204,7 +204,7 @@ private fun StepPill(index: Int, label: String, active: Boolean, done: Boolean, 
             else Text("$index", style = MaterialTheme.typography.labelMedium, color = fg)
         }
         Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge, color = if (active) AppColors.Brand else MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -227,12 +227,12 @@ private fun FileStep(vm: BatchFilesViewModel, picked: ServerFile?) {
         Surface(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(MaterialTheme.shapes.large)
                 .clickable { uploadLauncher.launch(arrayOf("*/*")) },
-            color = AppColors.Brand.copy(alpha = 0.08f),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
             shape = MaterialTheme.shapes.large,
         ) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(38.dp).background(AppColors.Brand.copy(alpha = 0.15f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.UploadFile, null, tint = AppColors.Brand, modifier = Modifier.size(22.dp))
+                Box(Modifier.size(38.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.UploadFile, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -277,8 +277,8 @@ private fun FileCard(f: ServerFile, selected: Boolean, onClick: () -> Unit, onDe
     val shape = MaterialTheme.shapes.large
     Surface(
         Modifier.fillMaxWidth().clip(shape).clickable(onClick = onClick)
-            .then(if (selected) Modifier.border(1.5.dp, AppColors.Brand, shape) else Modifier),
-        color = if (selected) AppColors.Brand.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
+            .then(if (selected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape) else Modifier),
+        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
         shape = shape,
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -301,7 +301,7 @@ private fun FileCard(f: ServerFile, selected: Boolean, onClick: () -> Unit, onDe
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (selected) {
-                Box(Modifier.size(22.dp).background(AppColors.Brand, CircleShape), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(22.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
                 }
             } else {
@@ -378,14 +378,14 @@ private fun DeviceCheckRow(d: Device, deviceTags: List<Tag>, checked: Boolean, o
     val shape = MaterialTheme.shapes.large
     Surface(
         Modifier.fillMaxWidth().clip(shape).clickable(onClick = onToggle)
-            .then(if (checked) Modifier.border(1.5.dp, AppColors.Brand, shape) else Modifier),
-        color = if (checked) AppColors.Brand.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
+            .then(if (checked) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape) else Modifier),
+        color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
         shape = shape,
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(22.dp).clip(RoundedCornerShape(6.dp))
-                    .background(if (checked) AppColors.Brand else Color.Transparent)
+                    .background(if (checked) MaterialTheme.colorScheme.primary else Color.Transparent)
                     .then(if (!checked) Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp)) else Modifier),
                 contentAlignment = Alignment.Center,
             ) { if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(15.dp)) }
@@ -472,7 +472,7 @@ private fun TaskBoard(vm: BatchFilesViewModel, onClear: () -> Unit) {
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Pill("完成 $done/${subs.size}", AppColors.Brand)
+            Pill("完成 $done/${subs.size}", MaterialTheme.colorScheme.primary)
             Pill("成功 $success", AppColors.Online, filled = success > 0)
             if (failed > 0) Pill("失败 $failed", AppColors.Danger, filled = true)
         }

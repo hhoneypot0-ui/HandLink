@@ -196,7 +196,7 @@ fun UsersScreen(vm: UsersViewModel, currentUser: String, onBack: () -> Unit) {
                 StatMiniCard(
                     label = "活跃租约",
                     value = st.totalActiveLeases.toString(),
-                    color = AppColors.Brand,
+                    color = MaterialTheme.colorScheme.primary,
                     selected = filter == UserFilter.LEASED,
                     modifier = Modifier.weight(1f),
                     onClick = { filter = UserFilter.LEASED }
@@ -535,7 +535,7 @@ private fun UserCard(
                             fontWeight = FontWeight.SemiBold
                         )
                         if (u.isAdmin) {
-                            Pill("👑 管理员", AppColors.Brand, filled = true)
+                            Pill("👑 管理员", MaterialTheme.colorScheme.primary, filled = true)
                         }
                         if (isSelf) {
                             Pill("我", AppColors.Online)
@@ -613,7 +613,7 @@ private fun UserCard(
                         val isExpiringSoon = remainSec < 7 * 86400
                         Pill(
                             "账号剩 ${Formatters.duration(remainSec)}",
-                            if (isExpiringSoon) AppColors.Warning else AppColors.Brand
+                            if (isExpiringSoon) AppColors.Warning else MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -623,9 +623,9 @@ private fun UserCard(
                     if (activeLeases.size == 1) {
                         val l = activeLeases[0]
                         val lRemain = if (l.isPermanent) "永久" else Formatters.duration(l.remainingSeconds)
-                        Pill("📦 租用 ${l.deviceId} ($lRemain)", if (l.isExpiringSoon()) AppColors.Warning else AppColors.Brand)
+                        Pill("📦 租用 ${l.deviceId} ($lRemain)", if (l.isExpiringSoon()) AppColors.Warning else MaterialTheme.colorScheme.primary)
                     } else {
-                        Pill("📦 ${activeLeases.size}台设备租约中", AppColors.Brand)
+                        Pill("📦 ${activeLeases.size}台设备租约中", MaterialTheme.colorScheme.primary)
                     }
                 } else if (totalLeaseCount > 0) {
                     Pill("📦 历史租约 $totalLeaseCount", AppColors.Offline)
@@ -759,7 +759,7 @@ private fun UserDetailSheet(
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(user.username, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Pill(if (user.isAdmin) "👑 管理员" else "普通用户", if (user.isAdmin) AppColors.Brand else AppColors.Online)
+                        Pill(if (user.isAdmin) "👑 管理员" else "普通用户", if (user.isAdmin) MaterialTheme.colorScheme.primary else AppColors.Online)
                         Pill(if (user.online) "在线" else "不在线", if (user.online) AppColors.Online else AppColors.Offline)
                     }
                     Text(

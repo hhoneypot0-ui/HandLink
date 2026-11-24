@@ -159,8 +159,8 @@ private fun ShareCard(s: Share, vm: SharesViewModel, onRevoke: () -> Unit, onExt
             }
             Spacer(Modifier.height(4.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Pill(s.deviceId, AppColors.Brand)
-                Pill(s.accessMode.label, if (s.accessMode == AccessMode.VIEW_ONLY) AppColors.Offline else AppColors.Brand)
+                Pill(s.deviceId, MaterialTheme.colorScheme.primary)
+                Pill(s.accessMode.label, if (s.accessMode == AccessMode.VIEW_ONLY) AppColors.Offline else MaterialTheme.colorScheme.primary)
                 if (s.requirePassword) Pill("需密码", AppColors.Warning)
                 if (!s.allowClipboard) Pill("禁剪贴板", AppColors.Offline)
                 if (!s.allowFileTx) Pill("禁文件", AppColors.Offline)

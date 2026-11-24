@@ -159,7 +159,7 @@ fun MeTab(vm: HomeViewModel, navigate: (String) -> Unit) {
             SettingRow("画质与编码", "分辨率、帧率、码率、音频", Icons.Outlined.HighQuality, onClick = { navigate(Routes.STREAM_SETTINGS) })
         }
         SectionCard(title = "受控") {
-            SettingRow("让对方看我的屏幕", "打开后，对方就能看到你的屏幕", Icons.Outlined.PhoneAndroid, tint = AppColors.Brand, onClick = { navigate(Routes.HOST) })
+            SettingRow("让对方看我的屏幕", "打开后，对方就能看到你的屏幕", Icons.Outlined.PhoneAndroid, tint = MaterialTheme.colorScheme.primary, onClick = { navigate(Routes.HOST) })
         }
         SectionCard(title = "通用") {
             SettingRow(
