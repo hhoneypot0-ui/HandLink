@@ -1,7 +1,7 @@
-package com.yuyu.handlink
+package yunyun.xiangxiang.handlink
 
-import com.yuyu.handlink.host.ProcessDeadline
-import com.yuyu.handlink.host.TimedShell
+import yunyun.xiangxiang.handlink.host.ProcessDeadline
+import yunyun.xiangxiang.handlink.host.TimedShell
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.ByteArrayInputStream

@@ -1,6 +1,6 @@
-package com.yuyu.handlink
+package yunyun.xiangxiang.handlink
 
-import com.yuyu.handlink.rtc.channel.TerminalOutputBuffer
+import yunyun.xiangxiang.handlink.rtc.channel.TerminalOutputBuffer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher

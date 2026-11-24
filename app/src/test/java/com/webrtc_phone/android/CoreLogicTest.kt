@@ -1,29 +1,29 @@
-package com.yuyu.handlink
+package yunyun.xiangxiang.handlink
 
-import com.yuyu.handlink.core.net.ServerEndpoint
-import com.yuyu.handlink.core.util.Formatters
-import com.yuyu.handlink.core.util.Rfc3339
-import com.yuyu.handlink.data.model.AccessMode
-import com.yuyu.handlink.data.model.Parsers
-import com.yuyu.handlink.data.model.TagsPayload
-import com.yuyu.handlink.data.model.TagOps
-import com.yuyu.handlink.data.model.Tag
-import com.yuyu.handlink.data.settings.QualityPreset
-import com.yuyu.handlink.data.settings.StreamSettings
-import com.yuyu.handlink.rtc.CameraParams
-import com.yuyu.handlink.rtc.ws.WsProtocol
-import com.yuyu.handlink.rtc.ScrcpyOptions
-import com.yuyu.handlink.rtc.StreamAuth
-import com.yuyu.handlink.rtc.StreamMode
-import com.yuyu.handlink.rtc.StreamTarget
-import com.yuyu.handlink.rtc.channel.ClipboardProtocol
-import com.yuyu.handlink.rtc.channel.InputProtocol
-import com.yuyu.handlink.rtc.channel.TouchAction
-import com.yuyu.handlink.rtc.signaling.SignalingMessage
-import com.yuyu.handlink.rtc.signaling.SignalingProtocol
-import com.yuyu.handlink.ui.stream.TouchMapper
-import com.yuyu.handlink.ui.home.DeviceFilter
-import com.yuyu.handlink.ui.home.StatusFilter
+import yunyun.xiangxiang.handlink.core.net.ServerEndpoint
+import yunyun.xiangxiang.handlink.core.util.Formatters
+import yunyun.xiangxiang.handlink.core.util.Rfc3339
+import yunyun.xiangxiang.handlink.data.model.AccessMode
+import yunyun.xiangxiang.handlink.data.model.Parsers
+import yunyun.xiangxiang.handlink.data.model.TagsPayload
+import yunyun.xiangxiang.handlink.data.model.TagOps
+import yunyun.xiangxiang.handlink.data.model.Tag
+import yunyun.xiangxiang.handlink.data.settings.QualityPreset
+import yunyun.xiangxiang.handlink.data.settings.StreamSettings
+import yunyun.xiangxiang.handlink.rtc.CameraParams
+import yunyun.xiangxiang.handlink.rtc.ws.WsProtocol
+import yunyun.xiangxiang.handlink.rtc.ScrcpyOptions
+import yunyun.xiangxiang.handlink.rtc.StreamAuth
+import yunyun.xiangxiang.handlink.rtc.StreamMode
+import yunyun.xiangxiang.handlink.rtc.StreamTarget
+import yunyun.xiangxiang.handlink.rtc.channel.ClipboardProtocol
+import yunyun.xiangxiang.handlink.rtc.channel.InputProtocol
+import yunyun.xiangxiang.handlink.rtc.channel.TouchAction
+import yunyun.xiangxiang.handlink.rtc.signaling.SignalingMessage
+import yunyun.xiangxiang.handlink.rtc.signaling.SignalingProtocol
+import yunyun.xiangxiang.handlink.ui.stream.TouchMapper
+import yunyun.xiangxiang.handlink.ui.home.DeviceFilter
+import yunyun.xiangxiang.handlink.ui.home.StatusFilter
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -277,22 +277,22 @@ class DeviceFilterTest {
 
 class ServerRelayTest {
     @Test fun taskTypeByExtension() {
-        assertEquals(com.yuyu.handlink.data.model.ServerTaskType.INSTALL,
-            com.yuyu.handlink.data.model.ServerFileOps.taskTypeFor("app.APK"))
-        assertEquals(com.yuyu.handlink.data.model.ServerTaskType.PUSH_FILE,
-            com.yuyu.handlink.data.model.ServerFileOps.taskTypeFor("data.zip"))
+        assertEquals(yunyun.xiangxiang.handlink.data.model.ServerTaskType.INSTALL,
+            yunyun.xiangxiang.handlink.data.model.ServerFileOps.taskTypeFor("app.APK"))
+        assertEquals(yunyun.xiangxiang.handlink.data.model.ServerTaskType.PUSH_FILE,
+            yunyun.xiangxiang.handlink.data.model.ServerFileOps.taskTypeFor("data.zip"))
     }
 
     @Test fun defaultDestPath() {
         assertEquals("/sdcard/Download/a.zip",
-            com.yuyu.handlink.data.model.ServerFileOps.defaultDestPath("a.zip"))
+            yunyun.xiangxiang.handlink.data.model.ServerFileOps.defaultDestPath("a.zip"))
         // 去掉可能的目录成分
         assertEquals("/sdcard/Download/a.zip",
-            com.yuyu.handlink.data.model.ServerFileOps.defaultDestPath("x/y/a.zip"))
+            yunyun.xiangxiang.handlink.data.model.ServerFileOps.defaultDestPath("x/y/a.zip"))
     }
 
     @Test fun absoluteUrl() {
-        val ops = com.yuyu.handlink.data.model.ServerFileOps
+        val ops = yunyun.xiangxiang.handlink.data.model.ServerFileOps
         assertEquals("https://h:8443/downloads/a?sig=1&exp=2",
             ops.absoluteUrl("https://h:8443", "/downloads/a?sig=1&exp=2"))
         // 已是绝对 URL 原样返回
@@ -422,17 +422,17 @@ class AdminLeaseAndUsersTest {
     }
 
     @Test fun usersUiStateDerivedProps() {
-        val dev1 = com.yuyu.handlink.data.model.Device(id = "d1", online = true)
-        val dev2 = com.yuyu.handlink.data.model.Device(id = "d2", online = true)
-        val dev3 = com.yuyu.handlink.data.model.Device(id = "d3", online = false)
+        val dev1 = yunyun.xiangxiang.handlink.data.model.Device(id = "d1", online = true)
+        val dev2 = yunyun.xiangxiang.handlink.data.model.Device(id = "d2", online = true)
+        val dev3 = yunyun.xiangxiang.handlink.data.model.Device(id = "d3", online = false)
 
-        val u1 = com.yuyu.handlink.data.model.AdminUser("user1", "user", "", true, listOf("d1"), null, com.yuyu.handlink.data.model.UserPolicy())
-        val u2 = com.yuyu.handlink.data.model.AdminUser("admin", "admin", "主管", true, emptyList(), null, com.yuyu.handlink.data.model.UserPolicy())
+        val u1 = yunyun.xiangxiang.handlink.data.model.AdminUser("user1", "user", "", true, listOf("d1"), null, yunyun.xiangxiang.handlink.data.model.UserPolicy())
+        val u2 = yunyun.xiangxiang.handlink.data.model.AdminUser("admin", "admin", "主管", true, emptyList(), null, yunyun.xiangxiang.handlink.data.model.UserPolicy())
 
-        val l1 = com.yuyu.handlink.data.model.AdminLease("l1", "user1", "d1", null, null, 3600, true, "", "admin", null)
-        val l2 = com.yuyu.handlink.data.model.AdminLease("l2", "user1", "d2", null, null, 0, false, "", "admin", 123L) // 已失效/收回
+        val l1 = yunyun.xiangxiang.handlink.data.model.AdminLease("l1", "user1", "d1", null, null, 3600, true, "", "admin", null)
+        val l2 = yunyun.xiangxiang.handlink.data.model.AdminLease("l2", "user1", "d2", null, null, 0, false, "", "admin", 123L) // 已失效/收回
 
-        val st = com.yuyu.handlink.ui.manage.UsersUiState(
+        val st = yunyun.xiangxiang.handlink.ui.manage.UsersUiState(
             users = listOf(u1, u2),
             leases = listOf(l1, l2),
             devices = listOf(dev1, dev2, dev3)

@@ -64,11 +64,11 @@ fun propOrEnv(name: String): String? =
     (project.findProperty(name) as String?) ?: localProps.getProperty(name) ?: System.getenv(name)
 
 android {
-    namespace = "com.yuyu.handlink"
+    namespace = "yunyun.xiangxiang.handlink"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.yuyu.handlink"
+        applicationId = "yunyun.xiangxiang.handlink"
         minSdk = 24
         targetSdk = 35
         versionCode = appVersionCode

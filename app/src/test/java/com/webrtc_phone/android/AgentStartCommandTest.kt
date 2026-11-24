@@ -1,6 +1,6 @@
-package com.yuyu.handlink
+package yunyun.xiangxiang.handlink
 
-import com.yuyu.handlink.host.AgentController
+import yunyun.xiangxiang.handlink.host.AgentController
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
