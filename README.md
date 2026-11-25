@@ -1,6 +1,10 @@
 # 牵手远程 HandLink
 
 <p align="center">
+  <img src="docs/assets/preview.png" alt="牵手远程 HandLink" width="100%" />
+</p>
+
+<p align="center">
   <a href="https://hhoneypot0-ui.github.io/HandLink/">
     <img src="https://img.shields.io/badge/🌐_官网-在线预览-FF98BE?style=for-the-badge" alt="官网">
   </a>
