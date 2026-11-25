@@ -41,6 +41,8 @@ import yunyun.xiangxiang.handlink.ui.common.StatusDot
 import yunyun.xiangxiang.handlink.ui.stream.StreamLauncher
 import yunyun.xiangxiang.handlink.ui.theme.AppColors
 import yunyun.xiangxiang.handlink.data.realtime.SocketState
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.IconButton
 
 private data class TabSpec(val key: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
@@ -97,6 +99,13 @@ fun HomeScreen(vm: HomeViewModel, navigate: (String) -> Unit) {
                 },
                 actions = {
                     if (tabs.getOrNull(tab)?.key == "devices") {
+                        IconButton(onClick = { vm.refresh() }) {
+                            Icon(
+                                Icons.Outlined.Refresh,
+                                contentDescription = "刷新设备列表",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                         StatusDot(
                             when (socket) {
                                 SocketState.CONNECTED -> AppColors.Online

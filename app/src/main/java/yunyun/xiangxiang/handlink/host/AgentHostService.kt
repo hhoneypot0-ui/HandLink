@@ -119,13 +119,18 @@ class AgentHostService : Service {
     private fun startWatchdog(prefs: HostPreferences) {
         watchdogJob = scope.launch {
             val useShizuku = prefs.runMode == RunMode.SHIZUKU
+            var startedAt = 0L          // 本进程的启动时刻
+            var lastLogStamp = 0L       // 上次看到的日志修改时间
+            var lastLogChangeAt = 0L    // 日志最后一次变化的时刻
+
             while (isActive) {
                 try {
                     val pid = AgentController.isAgentRunning(useShizuku)
-                    if (pid.isNotEmpty()) {
-                        lastError = null
-                        updateNotification("运行中 [PID: $pid] · 设备: ${prefs.deviceId}")
-                    } else {
+
+                    if (pid.isEmpty()) {
+                        // 进程没了 → 拉起
+                        startedAt = 0L
+                        lastLogChangeAt = 0L
                         updateNotification("Agent 未运行，尝试拉起中...")
                         AgentController.startAgent(
                             applicationContext,
@@ -134,6 +139,47 @@ class AgentHostService : Service {
                             prefs.deviceId,
                             prefs.iceServers
                         )
+                    } else {
+                        val now = System.currentTimeMillis()
+                        if (startedAt == 0L) {
+                            startedAt = now
+                            lastLogChangeAt = now
+                        }
+
+                        // 连接健康检查：agent 日志超过 3 分钟没变化 = 连接已死但进程还在
+                        val stamp = AgentController.agentLogModifiedAt(useShizuku)
+                        if (stamp > 0 && stamp != lastLogStamp) {
+                            lastLogStamp = stamp
+                            lastLogChangeAt = now
+                        }
+                        val silentMs = now - lastLogChangeAt
+                        // 启动后给 90 秒缓冲，之后日志静默超过 180 秒就判定掉线
+                        val stuck = now - startedAt > 90_000 && silentMs > 180_000
+
+                        if (stuck) {
+                            Log.w(TAG, "Agent 静默 ${silentMs / 1000}s，判定掉线，重启")
+                            lastError = "连接已断开，正在重连..."
+                            updateNotification("连接已断开，正在重连...")
+                            runCatching {
+                                AgentController.stopAgent(useShizuku)
+                            }
+                            delay(1500)
+                            runCatching {
+                                AgentController.startAgent(
+                                    applicationContext,
+                                    useShizuku,
+                                    HostConfig.normalizeSignalingUrl(prefs.signalingUrl),
+                                    prefs.deviceId,
+                                    prefs.iceServers
+                                )
+                            }
+                            startedAt = 0L
+                            lastLogStamp = 0L
+                            lastLogChangeAt = 0L
+                        } else {
+                            lastError = null
+                            updateNotification("运行中 [PID: $pid] · 设备: ${prefs.deviceId}")
+                        }
                     }
                 } catch (e: Exception) {
                     if (!isActive) throw e
@@ -141,7 +187,7 @@ class AgentHostService : Service {
                     updateNotification(lastError!!)
                     Log.w(TAG, "Watchdog failed: ${e.message}")
                 }
-                delay(5000)
+                delay(15_000)
             }
         }
     }

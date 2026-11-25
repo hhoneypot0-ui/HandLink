@@ -246,6 +246,19 @@ object AgentController {
         exec(cmd, useShizuku)
     }
 
+    /**
+     * 返回 agent 日志文件的最后修改时间（毫秒），拿不到返回 0。
+     * watchdog 用它判断「进程还在但连接已经死了」的情况。
+     */
+    fun agentLogModifiedAt(useShizuku: Boolean): Long {
+        val path = agentLogPath(useShizuku)
+        return runCatching {
+            val raw = execAndRead("if [ -f $path ]; then stat -c %Y $path; fi", useShizuku)
+            val sec = raw.trim().toLongOrNull() ?: 0L
+            if (sec > 0) sec * 1000 else 0L
+        }.getOrDefault(0L)
+    }
+
     fun isAgentRunning(useShizuku: Boolean): String {
         var pid = readPid("pidof cloudphone-agent", useShizuku)
         if (pid.isEmpty()) {
